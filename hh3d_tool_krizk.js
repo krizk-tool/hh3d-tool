@@ -8,7 +8,6 @@
 // @exclude       *://hoathinh3d.ai/khoang-mach*
 // @require       https://cdn.jsdelivr.net/npm/sweetalert2@11.26.12/dist/sweetalert2.all.min.js
 // @run-at        document-start
-// @grant         GM_xmlhttpRequest
 // @grant         unsafeWindow
 // @connect       raw.githubusercontent.com
 // ==/UserScript==   
