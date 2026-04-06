@@ -4,8 +4,8 @@
     // @version       5.8.5
     // @description   Custom menu auto HH3D
     // @author        Cre: [Unknown] - Edited by Krizk
-    // @include       *://hoathinh3d.ai*/*
-    // @exclude       *://hoathinh3d.ai/khoang-mach*
+    // @include       *://hoathinh3d.co*/*
+    // @exclude       *://hoathinh3d.co/khoang-mach*
     // @require       https://cdn.jsdelivr.net/npm/sweetalert2@11.26.12/dist/sweetalert2.all.min.js
     // @run-at        document-start
     // @grant         GM_xmlhttpRequest
