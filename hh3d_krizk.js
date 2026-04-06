@@ -1,7 +1,7 @@
     // ==UserScript==
     // @name          HH3D Auto - Edited by Krizk
-    // @namespace     hh3d-tool
-    // @version       5.8.3
+    // @namespace     hh3d-tool-krizk
+    // @version       5.8.5
     // @description   Custom menu auto HH3D
     // @author        Cre: [Unknown] - Edited by Krizk
     // @include       *://hoathinh3d.ai*/*
@@ -852,6 +852,13 @@ class TaskTracker {
             }
         },
         {
+            taskId: 'kmsearch',
+            taskName: 'Tìm Kẻ Địch',
+            taskIcon: '<i class="fas fa-search"></i>',
+            hasCustomControls: true,
+            hasSettings: true,
+        },
+        {
             taskId: 'dothach',
             taskName: 'Đổ Thạch',
             taskIcon: '<i class="fas fa-dice"></i>',
@@ -1044,6 +1051,15 @@ class TaskTracker {
                     <select class="quest-select muadan-count-select" title="Số đan Tông Môn">${opts}</select>
                     <button class="quest-action-btn muadan-tong-btn" data-task="muadan">🍱 Tông</button>
                     <button class="quest-action-btn muadan-tubao-btn" data-task="muadan" style="background:${tubao?'linear-gradient(135deg,#f093fb,#f5576c)':'#555'}">🧄 Tụ Bảo</button>
+                `;
+            }
+
+            // Custom controls: Tìm kiếm kẻ địch (Khoáng Mạch)
+            if (quest.hasCustomControls && quest.taskId === 'kmsearch') {
+                const hasResults = !!sessionStorage.getItem('khoangmach_enemy_search_results');
+                buttonHTML = `
+                    <button class="quest-action-btn km-search-start-btn">🔍 Tìm</button>
+                    <button class="quest-action-btn km-search-view-btn" ${!hasResults ? 'disabled' : ''}>📊 Kết quả</button>
                 `;
             }
 
@@ -1672,6 +1688,64 @@ function attachQuestButtonHandlers() {
         });
     }
 
+    // === Tìm kiếm kẻ địch — 2 inline buttons, options in settings modal ===
+    const kmSearchStartBtn = document.querySelector('.km-search-start-btn');
+    const kmSearchViewBtn = document.querySelector('.km-search-view-btn');
+
+    if (kmSearchStartBtn) {
+        kmSearchStartBtn.addEventListener('click', async () => {
+            kmSearchStartBtn.disabled = true;
+            const originalText = kmSearchStartBtn.textContent;
+            const updateBtn = (percent, msg) => {
+                percent = Math.min(percent, 100);
+                kmSearchStartBtn.textContent = `${percent}% - ${msg}`;
+                kmSearchStartBtn.style.background = `linear-gradient(90deg, #2e7d32 ${percent}%, #333 ${percent}%)`;
+                kmSearchStartBtn.style.color = '#fff';
+            };
+            updateBtn(0, 'Đang chuẩn bị...');
+            const rawEnemyIds = localStorage.getItem(`khoangmach_search_enemies_${accountId}`) || '';
+            const rawTongMonIds = localStorage.getItem(`khoangmach_search_tongmon_${accountId}`) || '';
+            const enemyList = rawEnemyIds.split(';').map(s => s.trim()).filter(Boolean);
+            const tongMonList = rawTongMonIds.split(';').map(s => s.trim()).filter(Boolean);
+            try {
+                await khoangmach.searchEnemiesInMines(enemyList, tongMonList, updateBtn);
+                updateBtn(100, 'Xong!');
+                await new Promise(r => setTimeout(r, 500));
+            } catch (err) {
+                console.error(err);
+                showNotification('Lỗi tìm kiếm', 'error');
+            } finally {
+                kmSearchStartBtn.disabled = false;
+                kmSearchStartBtn.textContent = originalText;
+                kmSearchStartBtn.style.background = '';
+                if (kmSearchViewBtn && sessionStorage.getItem('khoangmach_enemy_search_results')) {
+                    kmSearchViewBtn.disabled = false;
+                }
+            }
+        });
+    }
+
+    if (kmSearchViewBtn) {
+        kmSearchViewBtn.addEventListener('click', () => {
+            const saved = sessionStorage.getItem('khoangmach_enemy_search_results');
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    if (Array.isArray(parsed)) {
+                        khoangmach.showEnemySearchResults(parsed, Date.now(), 'Bộ nhớ tạm');
+                    } else {
+                        khoangmach.showEnemySearchResults(parsed.results, parsed.timestamp, parsed.source);
+                    }
+                } catch (e) {
+                    console.error('Lỗi đọc dữ liệu đã lưu:', e);
+                    showNotification('Dữ liệu lưu bị lỗi.', 'error');
+                }
+            } else {
+                showNotification('Chưa có kết quả tìm kiếm nào.', 'info');
+            }
+        });
+    }
+
     // Gắn sự kiện click vào icon để toggle autorun
     document.querySelectorAll('.nv-quest-icon[data-task]').forEach(icon => {
         const taskId = icon.getAttribute('data-task');
@@ -1935,11 +2009,12 @@ function getSettingsContentForTask(taskId) {
                 <div class="settings-section">
                     <h3>Cài đặt Khoáng Mạch</h3>
 
-                    <div class="settings-option">
-                        <label for="khoangmach-mine-select">Chọn Khoáng Mạch:</label>
-                        <select id="khoangmach-mine-select" class="settings-select">
+                    <div class="settings-option" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                        <label for="khoangmach-mine-select" style="white-space:nowrap">Chọn Khoáng Mạch:</label>
+                        <select id="khoangmach-mine-select" class="settings-select" style="flex:1;min-width:120px">
                             <option value="">⏳ Đang tải danh sách mỏ...</option>
                         </select>
+                        <button id="khoangmach-reload-mines-btn" title="Tải lại danh sách mỏ" style="padding:3px 8px;font-size:11px;border-radius:4px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.07);color:#d0d8f0;cursor:pointer;white-space:nowrap">🔄 Load</button>
                     </div>
 
                     <div class="settings-option">
@@ -2020,6 +2095,49 @@ function getSettingsContentForTask(taskId) {
             `;
         }
 
+        case 'kmsearch': {
+            const _savedEnemyIds = localStorage.getItem(`khoangmach_search_enemies_${accountId}`) || '';
+            const _savedTongMonIds = localStorage.getItem(`khoangmach_search_tongmon_${accountId}`) || '';
+            const _savedMineIds = (() => { try { const r = localStorage.getItem('khoangmach_search_mine_ids'); return r ? JSON.parse(r) : null; } catch(e) { return null; } })();
+            const _isAllMines = !_savedMineIds || _savedMineIds.length === 0;
+            return `
+                <div class="settings-section">
+                    <h3>Tìm Kẻ Địch (Khoáng Mạch)</h3>
+
+                    <div class="settings-option">
+                        <label for="kmsearch-enemies-input">ID kẻ địch (cách nhau bằng dấu <b>;</b>):</label>
+                        <input type="text" id="kmsearch-enemies-input" class="settings-input" placeholder="12345;67890;65454" value="${_savedEnemyIds}" />
+                    </div>
+
+                    <div class="settings-option">
+                        <label for="kmsearch-tongmon-input">ID Tông Môn (cách nhau bằng dấu <b>;</b>):</label>
+                        <div style="display:flex;gap:6px;align-items:center">
+                            <input type="text" id="kmsearch-tongmon-input" class="settings-input" style="flex:1" placeholder="57264;57265" value="${_savedTongMonIds}" />
+                            <button id="kmsearch-tongmon-view-btn" style="padding:3px 8px;font-size:11px;border-radius:4px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.07);color:#d0d8f0;cursor:pointer;white-space:nowrap">👁 Danh sách TM</button>
+                        </div>
+                        <div id="kmsearch-tongmon-container" style="display:none;max-height:240px;overflow-y:auto;margin-top:6px;padding:4px;background:rgba(255,255,255,0.03);border-radius:4px"></div>
+                    </div>
+
+                    <div class="settings-option">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                            <label style="margin:0">Mỏ cần quét:</label>
+                            <button id="kmsearch-mine-load-btn" style="padding:3px 8px;font-size:11px;border-radius:4px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.07);color:#d0d8f0;cursor:pointer;white-space:nowrap">🔄 Tải DS mỏ</button>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:6px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.07);margin-bottom:4px">
+                            <label style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer;flex-shrink:0">
+                                <input type="checkbox" id="kmsearch-mine-all" ${_isAllMines ? 'checked' : ''}> Tất cả
+                            </label>
+                            <button id="kmsearch-mine-sel-gold" style="padding:2px 7px;font-size:10px;border-radius:4px;border:1px solid rgba(245,197,66,0.4);background:rgba(245,197,66,0.1);color:#f5c542;cursor:pointer;white-space:nowrap">Thượng</button>
+                            <button id="kmsearch-mine-sel-silver" style="padding:2px 7px;font-size:10px;border-radius:4px;border:1px solid rgba(192,192,192,0.4);background:rgba(192,192,192,0.1);color:#c0c0c0;cursor:pointer;white-space:nowrap">Trung</button>
+                        </div>
+                        <div id="kmsearch-mine-container" style="max-height:200px;overflow-y:auto;padding:2px;font-size:11px;color:#9ca3af">
+                            Bấm "Tải DS mỏ" để xem danh sách
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
         default:
             return `<div class="settings-section"><p>Không có cài đặt cho nhiệm vụ này</p></div>`;
     }
@@ -2056,30 +2174,260 @@ function bindSettingsEventsForTask(taskId) {
         case 'khoangmach': {
             // Async load danh sách mỏ
             const km_sel = document.getElementById('khoangmach-mine-select');
+            const km_reloadBtn = document.getElementById('khoangmach-reload-mines-btn');
             const km_accountId = localStorage.getItem('hh3d_account_id') || '';
-            if (km_sel) {
-                khoangmach.getAllMines().then(({ optionsHtml, minesData }) => {
+
+            const km_populateMines = (force = false) => {
+                if (km_sel) km_sel.innerHTML = '<option value="">⏳ Đang tải...</option>';
+                if (km_reloadBtn) { km_reloadBtn.disabled = true; km_reloadBtn.textContent = '⏳'; }
+                khoangmach.getAllMines(force).then(({ optionsHtml, minesData }) => {
                     const savedMineSetting = localStorage.getItem(`khoangmach_selected_mine_${km_accountId}`);
                     let savedMineId = '';
                     try { savedMineId = savedMineSetting ? JSON.parse(savedMineSetting).id : ''; } catch(e) {}
                     km_sel.innerHTML = `<option value="">-- Chọn mỏ --</option>` + optionsHtml;
-                    // pre-select saved mine
                     if (savedMineId) {
                         const opt = km_sel.querySelector(`option[value="${savedMineId}"]`);
                         if (opt) opt.selected = true;
                     }
-                    // gán data-mine cho từng option từ minesData
                     minesData.forEach(mine => {
                         const opt = km_sel.querySelector(`option[value="${mine.id}"]`);
                         if (opt) opt.dataset.mine = JSON.stringify({ id: mine.id, type: mine.type });
                     });
+                    if (force) showNotification(`✅ Đã tải ${minesData.length} mỏ`, 'success', 1500);
                 }).catch(() => {
                     km_sel.innerHTML = '<option value="">⚠️ Không tải được danh sách mỏ</option>';
+                }).finally(() => {
+                    if (km_reloadBtn) { km_reloadBtn.disabled = false; km_reloadBtn.textContent = '🔄 Load'; }
                 });
+            };
+
+            km_populateMines(false);
+
+            if (km_reloadBtn) {
+                km_reloadBtn.addEventListener('click', () => km_populateMines(true));
             }
             break;
         }
             
+        case 'kmsearch': {
+            const ks_accountId = localStorage.getItem('hh3d_account_id') || '';
+            const ks_enemiesInput = document.getElementById('kmsearch-enemies-input');
+            const ks_tongMonInput = document.getElementById('kmsearch-tongmon-input');
+            const ks_tongMonViewBtn = document.getElementById('kmsearch-tongmon-view-btn');
+            const ks_tongMonContainer = document.getElementById('kmsearch-tongmon-container');
+            const ks_mineContainer = document.getElementById('kmsearch-mine-container');
+            const ks_mineLoadBtn = document.getElementById('kmsearch-mine-load-btn');
+            const ks_mineAllChk = document.getElementById('kmsearch-mine-all');
+
+            if (ks_enemiesInput) {
+                ks_enemiesInput.addEventListener('input', () => {
+                    localStorage.setItem(`khoangmach_search_enemies_${ks_accountId}`, ks_enemiesInput.value);
+                });
+            }
+
+            if (ks_tongMonInput && ks_tongMonContainer && ks_tongMonViewBtn) {
+                const ks_selKey = `khoangmach_search_tongmon_${ks_accountId}`;
+                const ks_parseIds = (raw) => {
+                    const list = (raw || '').split(';').map(s => s.trim()).filter(Boolean);
+                    const set = new Set();
+                    const unique = [];
+                    for (const id of list) if (!set.has(id)) { set.add(id); unique.push(id); }
+                    return { list: unique, set };
+                };
+                const ks_normalize = (ids) => (ids || []).join(';');
+                let ks_cbMap = new Map();
+                let ks_syncing = false;
+                let ks_loaded = false;
+
+                const ks_syncInput = (v) => {
+                    if (ks_tongMonInput.value === v) return;
+                    ks_syncing = true;
+                    try { ks_tongMonInput.value = v; localStorage.setItem(ks_selKey, v); }
+                    finally { ks_syncing = false; }
+                };
+                const ks_syncCheckboxes = () => {
+                    if (!ks_cbMap.size) return;
+                    const { set } = ks_parseIds(ks_tongMonInput.value);
+                    for (const [id, cb] of ks_cbMap.entries()) cb.checked = set.has(id);
+                };
+                const ks_renderList = (list) => {
+                    ks_tongMonContainer.innerHTML = '';
+                    ks_cbMap = new Map();
+                    list.sort((a, b) => b.level - a.level);
+                    const current = ks_parseIds(ks_tongMonInput.value);
+                    for (const tm of (list || [])) {
+                        const row = document.createElement('div');
+                        row.style.cssText = 'display:flex;align-items:center;gap:6px;padding:2px 0';
+                        const cb = document.createElement('input');
+                        cb.type = 'checkbox';
+                        cb.checked = current.set.has(tm.id);
+                        ks_cbMap.set(tm.id, cb);
+                        const lbl = document.createElement('span');
+                        lbl.style.color = `hsl(${(Math.min(tm.level, 10) - 1) * 36}, 100%, 50%)`;
+                        lbl.style.fontSize = '11px';
+                        lbl.textContent = `[Cấp ${tm.level}] ${tm.name}`;
+                        cb.addEventListener('change', () => {
+                            const { list: ids } = ks_parseIds(ks_tongMonInput.value);
+                            const s = new Set(ids);
+                            if (cb.checked) { if (!s.has(tm.id)) ids.push(tm.id); }
+                            else { const i = ids.indexOf(tm.id); if (i !== -1) ids.splice(i, 1); }
+                            ks_syncInput(ks_normalize(ids));
+                        });
+                        row.appendChild(cb); row.appendChild(lbl);
+                        ks_tongMonContainer.appendChild(row);
+                    }
+                    ks_syncCheckboxes();
+                };
+
+                ks_tongMonInput.addEventListener('input', () => {
+                    localStorage.setItem(ks_selKey, ks_tongMonInput.value);
+                    if (!ks_syncing) ks_syncCheckboxes();
+                });
+                ks_tongMonViewBtn.addEventListener('click', async () => {
+                    if (ks_loaded && ks_tongMonContainer.innerHTML && ks_tongMonContainer.style.display !== 'none') {
+                        ks_tongMonContainer.style.display = 'none';
+                        return;
+                    }
+                    ks_tongMonContainer.style.display = 'block';
+                    ks_tongMonContainer.innerHTML = 'Đang tải...';
+                    try {
+                        const data = await khoangmach.getListTongMon();
+                        ks_renderList(data);
+                        ks_loaded = true;
+                    } catch (e) {
+                        ks_tongMonContainer.innerHTML = '';
+                        showNotification(`Không tải được danh sách tông môn: ${e}`, 'error');
+                    }
+                });
+            }
+
+            // --- Mine selection ---
+            if (ks_mineContainer) {
+                const ks_mineKey = 'khoangmach_search_mine_ids';
+                const ks_getSavedMineIds = () => {
+                    try {
+                        const raw = localStorage.getItem(ks_mineKey);
+                        if (!raw) return null;
+                        const arr = JSON.parse(raw);
+                        return Array.isArray(arr) && arr.length > 0 ? arr.map(String) : null;
+                    } catch(e) { return null; }
+                };
+                const ks_saveMineIds = (ids) => {
+                    if (!ids || ids.length === 0) localStorage.removeItem(ks_mineKey);
+                    else localStorage.setItem(ks_mineKey, JSON.stringify(ids));
+                };
+
+                let ks_mineCbMap = new Map();
+
+                const ks_renderMines = (minesData) => {
+                    ks_mineCbMap = new Map();
+                    ks_mineContainer.innerHTML = '';
+                    const savedIds = ks_getSavedMineIds();
+                    const isAll = !savedIds;
+                    if (ks_mineAllChk) ks_mineAllChk.checked = isAll;
+
+                    const allowedTypes = new Set(['gold', 'silver']);
+                    const mines = (minesData || []).filter(m => allowedTypes.has(String(m.type)));
+
+                    const typeLabel = (t) => t === 'gold' ? 'Thượng' : t === 'silver' ? 'Trung' : 'Hạ';
+                    const typeColor = (t) => t === 'gold' ? '#f5c542' : t === 'silver' ? '#c0c0c0' : '#cd7f32';
+
+                    const ks_onMineChange = () => {
+                        const selected = [];
+                        for (const [id, c] of ks_mineCbMap.entries()) if (c.checked) selected.push(id);
+                        const allChecked = selected.length === ks_mineCbMap.size;
+                        ks_saveMineIds(allChecked ? null : selected);
+                        if (ks_mineAllChk) ks_mineAllChk.checked = allChecked;
+                    };
+
+                    for (const mine of mines) {
+                        const row = document.createElement('div');
+                        row.style.cssText = 'display:flex;align-items:center;gap:6px;padding:2px 4px;cursor:pointer;border-radius:3px';
+                        row.addEventListener('mouseenter', () => { row.style.background = 'rgba(255,255,255,0.06)'; });
+                        row.addEventListener('mouseleave', () => { row.style.background = ''; });
+                        const cb = document.createElement('input');
+                        cb.type = 'checkbox';
+                        cb.style.cssText = 'pointer-events:none;flex-shrink:0';
+                        cb.checked = isAll || (savedIds.includes(String(mine.id)));
+                        cb._mineType = String(mine.type);
+                        ks_mineCbMap.set(String(mine.id), cb);
+                        const lbl = document.createElement('span');
+                        lbl.style.color = typeColor(mine.type);
+                        lbl.style.fontSize = '11px';
+                        lbl.textContent = `[${typeLabel(mine.type)}] ${mine.name} (${mine.id})`;
+                        row.addEventListener('click', () => {
+                            cb.checked = !cb.checked;
+                            ks_onMineChange();
+                        });
+                        row.appendChild(cb); row.appendChild(lbl);
+                        ks_mineContainer.appendChild(row);
+                    }
+
+                    if (mines.length === 0) ks_mineContainer.textContent = 'Không có mỏ Thượng/Trung trong cache.';
+                };
+
+                const ks_loadMines = async (force = false) => {
+                    if (ks_mineLoadBtn) { ks_mineLoadBtn.disabled = true; ks_mineLoadBtn.textContent = '⏳'; }
+                    ks_mineContainer.innerHTML = 'Đang tải...';
+                    try {
+                        const { minesData } = await khoangmach.getAllMines(force);
+                        ks_renderMines(minesData);
+                        if (force) showNotification(`✅ Đã tải danh sách mỏ`, 'success', 1500);
+                    } catch(e) {
+                        ks_mineContainer.textContent = '⚠️ Không tải được danh sách mỏ';
+                    } finally {
+                        if (ks_mineLoadBtn) { ks_mineLoadBtn.disabled = false; ks_mineLoadBtn.textContent = '🔄 Tải DS mỏ'; }
+                    }
+                };
+
+                if (ks_mineAllChk) {
+                    ks_mineAllChk.addEventListener('change', () => {
+                        const checked = ks_mineAllChk.checked;
+                        for (const [, cb] of ks_mineCbMap.entries()) cb.checked = checked;
+                        ks_saveMineIds(checked ? null : []);
+                    });
+                }
+
+                const ks_mineSelGoldBtn = document.getElementById('kmsearch-mine-sel-gold');
+                const ks_mineSelSilverBtn = document.getElementById('kmsearch-mine-sel-silver');
+
+                if (ks_mineSelGoldBtn) {
+                    ks_mineSelGoldBtn.addEventListener('click', () => {
+                        const selected = [];
+                        for (const [id, cb] of ks_mineCbMap.entries()) {
+                            const isGold = cb._mineType === 'gold';
+                            cb.checked = isGold;
+                            if (isGold) selected.push(id);
+                        }
+                        if (ks_mineAllChk) ks_mineAllChk.checked = false;
+                        ks_saveMineIds(selected);
+                    });
+                }
+
+                if (ks_mineSelSilverBtn) {
+                    ks_mineSelSilverBtn.addEventListener('click', () => {
+                        const selected = [];
+                        for (const [id, cb] of ks_mineCbMap.entries()) {
+                            const isSilver = cb._mineType === 'silver';
+                            cb.checked = isSilver;
+                            if (isSilver) selected.push(id);
+                        }
+                        if (ks_mineAllChk) ks_mineAllChk.checked = false;
+                        ks_saveMineIds(selected);
+                    });
+                }
+
+                if (ks_mineLoadBtn) {
+                    ks_mineLoadBtn.addEventListener('click', () => ks_loadMines(false));
+                }
+
+                // Auto-load from cache on settings open
+                ks_loadMines(false);
+            }
+
+            break;
+        }
+
         case 'bicanh':
         case 'general':
             // No special events
@@ -2145,6 +2493,11 @@ function saveAllSettings() {
                 break;
             }
                 
+            case 'kmsearch':
+                // inputs save on keystroke via bindSettingsEventsForTask; nothing extra to save
+                saved = true;
+                break;
+
             case 'bicanh':
                 const reserveAttacks = parseInt(document.getElementById('bicanh-reserve-attacks')?.value || '0', 10);
                 const socketEnabled = document.getElementById('bicanh-socket-enabled')?.checked || false;
@@ -5408,20 +5761,19 @@ function extractRedeemNonce(html) {
             } catch (e) { console.error(`${this.logPrefix} ❌ Lỗi mạng (tải mỏ):`, e); return null; }
         };
 
-        async getAllMines() {
+        async getAllMines(forceRefresh = false) {
             const mineTypes = ['gold', 'silver', 'copper'];
             const cacheKey = "HH3D_allMines";
             const cacheRaw = localStorage.getItem(cacheKey);
 
-            // Kiểm tra cache
-            if (cacheRaw && cacheRaw.length > 0) {
+            // Kiểm tra cache (không có thời hạn — chỉ xóa khi bấm load lại)
+            if (!forceRefresh && cacheRaw && cacheRaw.length > 0) {
                 try {
                     const cache = JSON.parse(cacheRaw);
-                    // Chỉ dùng cache nếu còn hạn VÀ đủ 3 loại mỏ
                     const cacheTypes = new Set((cache?.data || []).map(m => String(m?.type || '')));
                     const cacheHasAllTypes = mineTypes.every(t => cacheTypes.has(t));
 
-                    if (Date.now() < cache.expiresAt && cache.data && cache.data.length > 0 && cacheHasAllTypes) {
+                    if (cache.data && cache.data.length > 0 && cacheHasAllTypes) {
                         console.log("[HH3D] 🗄️ Dùng dữ liệu mỏ từ cache");
                         return {
                             optionsHtml: cache.optionsHtml,
@@ -5522,19 +5874,11 @@ function extractRedeemNonce(html) {
                 return `<option value="${mine.id}">${typePrefix}${mine.name} (${mine.id})</option>`;
             }).join('');
 
-            // --- Tính thời điểm 0h hôm sau ---
-            const now = new Date();
-            const expireDate = new Date(now);
-            expireDate.setHours(24, 0, 0, 0); // 0h ngày hôm sau
-            const expiresAt = expireDate.getTime();
-
-            // --- Lưu cache ---
-            // Chỉ cache khi đã đủ 3 loại mỏ
+            // --- Lưu cache (không có thời hạn) ---
             if (missingTypes.size === 0) {
                 localStorage.setItem(cacheKey, JSON.stringify({
                     data: allMines,
-                    optionsHtml: mineOptionsHtml,
-                    expiresAt
+                    optionsHtml: mineOptionsHtml
                 }));
             }
 
@@ -6130,6 +6474,16 @@ function extractRedeemNonce(html) {
                 return [];
             }
 
+            // Đọc bộ lọc mỏ từ settings
+            let mineIdsFilter = null;
+            try {
+                const _mineRaw = localStorage.getItem('khoangmach_search_mine_ids');
+                if (_mineRaw) {
+                    const _arr = JSON.parse(_mineRaw);
+                    if (Array.isArray(_arr) && _arr.length > 0) mineIdsFilter = _arr.map(String);
+                }
+            } catch(e) {}
+
             // Map tên tông (Giữ nguyên)
             let tongNameSet = new Set();
             if (tongIdSet.size > 0) {
@@ -6154,6 +6508,11 @@ function extractRedeemNonce(html) {
 
                 if (serverData && serverData.timestamp && (now - serverData.timestamp < 5 * 60 * 1000)) {
                     minesData = serverData.mines || [];
+                    // Áp dụng bộ lọc mỏ cụ thể nếu có
+                    if (mineIdsFilter && mineIdsFilter.length > 0) {
+                        const _filterSet = new Set(mineIdsFilter);
+                        minesData = minesData.filter(m => _filterSet.has(String(m.id)));
+                    }
                     dataTimestamp = serverData.timestamp;
                     showNotification(`Dữ liệu từ Server (${this.timeSince(dataTimestamp)})`, 'success');
                 } else {
@@ -6165,7 +6524,7 @@ function extractRedeemNonce(html) {
                 showNotification('Đang quét trực tiếp...', 'info');
 
                 // Quét mới (truyền callback xuống để cập nhật UI)
-                minesData = await this.scanAllMinesRawData(onProgressCallback);
+                minesData = await this.scanAllMinesRawData(onProgressCallback, mineIdsFilter);
                 dataTimestamp = Date.now();
 
                 // Upload lên server (Dùng hàm đã sửa header ở trên)
@@ -6226,7 +6585,7 @@ function extractRedeemNonce(html) {
         }
 
         // Hàm phụ: Quét toàn bộ mỏ (Trả về dữ liệu thô để upload)
-        async scanAllMinesRawData(onProgress) {
+        async scanAllMinesRawData(onProgress, mineIdsFilter = null) {
             console.log(`${this.logPrefix} 🕵️ Bắt đầu quét toàn bộ mỏ (Mode: Raw Data)...`);
 
             // Get account ID for decoding avatars
@@ -6241,7 +6600,14 @@ function extractRedeemNonce(html) {
 
             // Chỉ lấy mỏ Gold/Silver
             const allowedTypes = new Set(['gold', 'silver']);
-            const filteredMines = allMines.minesData.filter(m => allowedTypes.has(String(m.type)));
+            let filteredMines = allMines.minesData.filter(m => allowedTypes.has(String(m.type)));
+
+            // Áp dụng bộ lọc mỏ cụ thể nếu có
+            if (mineIdsFilter && mineIdsFilter.length > 0) {
+                const filterSet = new Set(mineIdsFilter.map(String));
+                filteredMines = filteredMines.filter(m => filterSet.has(String(m.id)));
+                console.log(`${this.logPrefix} 🔍 Lọc mỏ: chỉ quét ${filteredMines.length} mỏ được chọn.`);
+            }
 
             if (filteredMines.length === 0) return [];
 
@@ -8984,6 +9350,20 @@ class HoatDongNgay {
                     border-color: #667eea;
                     color: #fff;
                 }
+
+                /* Search task item */
+                .nv-quest-item.km-search-item {
+                    flex-wrap: wrap;
+                    align-items: center;
+                }
+                .km-search-item .nv-quest-name,
+                .km-search-item .nv-quest-icon,
+                .km-search-item .quest-controls {
+                    flex-shrink: 0;
+                }
+                .km-search-item .nv-quest-name {
+                    flex: 1;
+                }
                 
                 @keyframes fadeIn {
                     from { opacity: 0; }
@@ -9695,6 +10075,7 @@ class HoatDongNgay {
 
         // Hẹn giờ gọi lại chính nó sau khoảng thời gian đã tính
         if (this.tienduyenTimeout) clearTimeout(this.tienduyenTimeout);
+        countdownTimer.set('tienduyen', timeToNextCheck);
         this.tienduyenTimeout = setTimeout(() => this.scheduleTienDuyenCheck(), timeToNextCheck);
     }
 
@@ -9887,6 +10268,7 @@ class HoatDongNgay {
 
                 // Hủy timeout cũ nếu có và thiết lập timeout mới
                 if (this.dothachTimeout) clearTimeout(this.dothachTimeout);
+                countdownTimer.set('dothach', timeToNextCheck);
                 this.dothachTimeout = setTimeout(() => this.scheduleDoThach(), timeToNextCheck);
 
                 console.log(`[Đổ Thạch] Lần kiểm tra tiếp theo lúc: ${new Date(Date.now() + timeToNextCheck).toLocaleTimeString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}`);
