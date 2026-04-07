@@ -1,7 +1,7 @@
     // ==UserScript==
     // @name          HH3D Auto - Edited by Krizk
     // @namespace     hh3d-tool-krizk
-    // @version       5.8.5
+    // @version       5.9.0
     // @description   Custom menu auto HH3D
     // @author        Cre: [Unknown] - Edited by Krizk
     // @include       *://hoathinh3d.co*/*
