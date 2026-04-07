@@ -109,7 +109,7 @@
               if (scriptMatch) {
                 k = k || scriptMatch[1];
                 d = d || scriptMatch[2];
-                //console.log('✅ Đã lấy k và d từ HTML');
+                // console.log('✅ Đã lấy k và d từ HTML');
               } else {
                 // console.log('⚠️ Không tìm thấy k và d trong HTML');
                 return hh3dData; // Trả về hh3dData mặc định
@@ -119,8 +119,16 @@
             // ⭐ BƯỚC 3: Decode encrypted data
             if (k && d) {
               try {
-                // Base64 decode
-                const decodedBytes = atob(d).split('').map(c => c.charCodeAt(0));
+                // Base64 decode (normalize URL-safe base64 → standard base64, then add padding)
+                const b64 = d.replace(/\\/g, '').replace(/-/g, '+').replace(/_/g, '/').replace(/\s/g, '');
+                const b64Padded = b64.padEnd(b64.length + (4 - b64.length % 4) % 4, '=');
+                // Debug: log invalid chars
+                const invalidChars = b64Padded.replace(/[A-Za-z0-9+/=]/g, '');
+                // if (invalidChars.length > 0) {
+                //   console.log('⚠️ d có ký tự không hợp lệ (charCode):', [...invalidChars].map(c => c.charCodeAt(0)));
+                // }
+                // console.log('🔍 d (first 80):', d.substring(0, 80), '| len:', d.length);
+                const decodedBytes = atob(b64Padded).split('').map(c => c.charCodeAt(0));
                 
                 // XOR với key
                 let result = '';
@@ -939,7 +947,7 @@ class TaskTracker {
             hasButton: true,
             buttonText: 'Khắc',
             hasExtraButton: true,
-            extraButtonText: '👑',
+            extraButtonText: 'VIP',
             extraButtonTitle: 'Nhận lượt Khắc Trận VIP',
             async action() {
                 await khactran.autoActivateSeal();
@@ -1097,6 +1105,7 @@ class TaskTracker {
             <div class="nv-overview">
                 <div class="nv-ov-header">
                     <h3>Nhiệm Vụ</h3>
+                    <span class="quest-next-time" data-task="restart" style="font-size:10px;color:#9ca3af;flex-shrink:0;margin-right:5px"></span>
                     <span class="percent">0%</span>
                 </div>
                 <div class="nv-progress-bar">
@@ -1147,7 +1156,7 @@ async function loadHH3DProfile() {
                 </span>
             </div>        
             <div id="promo-form" class="promo-form">
-                <input type="text" id="promo-code-input" placeholder="Nhập CODE" />
+                <input type="text" id="promo-code-input" placeholder="Nhập CODE" value="${localStorage.getItem('hh3d_promo_code') || ''}" />
                 <button id="promo-code-submit">💎 Hấp Thụ</button>
                 <button id="settings-btn" class="settings-btn" title="Cài đặt chung">⚙️</button>
                 <button id="guide-btn" class="settings-btn" title="Hướng dẫn sử dụng">❓</button>
@@ -1204,6 +1213,7 @@ async function loadHH3DProfile() {
                         showNotification('⚠️ Vui lòng nhập mã CODE', 'warning');
                         return;
                     }
+                    localStorage.setItem('hh3d_promo_code', code);
                     await submitPromoCode(code);
                 });
                 
@@ -1211,7 +1221,10 @@ async function loadHH3DProfile() {
                 promoInput.addEventListener('keypress', async (e) => {
                     if (e.key === 'Enter') {
                         const code = promoInput.value.trim();
-                        if (code) await submitPromoCode(code);
+                        if (code) {
+                            localStorage.setItem('hh3d_promo_code', code);
+                            await submitPromoCode(code);
+                        }
                     }
                 });
             }
@@ -1407,6 +1420,7 @@ async function updateAllQuestButtons() {
             case 'luotkhactranvip':
             case 'tienduyen':
             case 'phaptuong':
+            case 'hoatdongngay':
                 if (taskTracker.isTaskDone(accountId, quest.taskId)) {
                     // button.disabled = true;
                     button.textContent = '✓ Xong';
@@ -2567,7 +2581,7 @@ async function submitPromoCode(promoCode) {
                 "Sec-Fetch-Site": "same-origin",
                 Priority: "u=0"
             },
-            body: `action=redeem_linh_thach&code=${encodeURIComponent(promoCode)}&nonce=${nonce}&hold_timestamp=${Math.floor(
+            body: `action=redeem_linh_thach&code=${encodeURIComponent(promoCode)}&nonce=${nonce}&lt_token=${securityToken}&hold_timestamp=${Math.floor(
                 Date.now() / 1000
             )}`,
             method: "POST",
@@ -2584,7 +2598,7 @@ async function submitPromoCode(promoCode) {
             const input = document.getElementById('promo-code-input');
             if (input) input.value = '';
         } else if (data.data?.message === "⚠️ Đạo hữu đã hấp thụ linh thạch này rồi!") {
-            showNotification(`${logPrefix} ⚠️ Đã nhập mã này rồi`, 'warn');
+            showNotification(`${logPrefix} ${data.data.message || JSON.stringify(data)}`, 'warn');
             localStorage.setItem(`promo_code_${accountId}`, promoCode);
         } else {
             showNotification(`${logPrefix} ❌ ${data.data?.message || data.message || "Không xác định"}`, 'error');
@@ -9056,6 +9070,17 @@ class HoatDongNgay {
                     display: block;
                 }
 
+                .quest-next-time[data-task="restart"] {
+                    position: static !important;
+                    bottom: auto !important;
+                    left: auto !important;
+                    transform: none !important;
+                    display: none;
+                }
+                .quest-next-time[data-task="restart"].active {
+                    display: inline !important;
+                }
+
                 /* Hover effect cho icon khi có thể toggle */
                 .nv-quest-icon[data-task] {
                     transition: all 0.2s ease;
@@ -9800,9 +9825,9 @@ class HoatDongNgay {
 
             // Các khoảng thời gian kiểm tra (ms)
             this.CHECK_INTERVAL_TIEN_DUYEN = 30 * 60 * 1000;
-            this.INTERVAL_HOANG_VUC = 15 * 60 * 1000 + this.delay;
-            this.INTERVAL_PHUC_LOI = 30 * 60 * 1000 + this.delay;
-            this.INTERVAL_THI_LUYEN = 30 * 60 * 1000 + this.delay;
+            this.INTERVAL_HOANG_VUC = 3 * 60 * 1000 + this.delay;
+            this.INTERVAL_PHUC_LOI = 5 * 60 * 1000 + this.delay;
+            this.INTERVAL_THI_LUYEN = 5 * 60 * 1000 + this.delay;
             this.INTERVAL_BI_CANH = 7 * 60 * 1000 + this.delay;
             this.INTERVAL_KHOANG_MACH = localStorage.getItem('khoangmach_check_interval') ? parseInt(localStorage.getItem('khoangmach_check_interval'))*60*1000 + this.delay : 5*60*1000 + this.delay;
             this.INTERVAL_HOAT_DONG_NGAY = 10 * 60 * 1000 + this.delay;
@@ -10007,6 +10032,7 @@ class HoatDongNgay {
         }
         const delay = timeToRerun.getTime() - now;
         console.log(`[Auto] Lên lịch tự chạy lại vào lúc ${h} giờ ${m} phút ${s} giây. Thời gian chờ: ${delay}ms.`);
+        countdownTimer.set('restart', delay);
         setTimeout(() => { this.stop(); }, delay);
         setTimeout(() => { this.start(); }, delay+1000);
 
@@ -10108,6 +10134,8 @@ class HoatDongNgay {
                 try {
                     // Cho phép taskAction trả về delay thực tế (ms hoặc chuỗi thời gian)
                     let result = await taskAction();
+                    // Cập nhật trạng thái UI sau khi task chạy xong
+                    updateAllQuestButtons().catch(() => {});
                     // Nếu trả về số, dùng làm delay
                     if (typeof result === 'number' && !isNaN(result) && result > 0) {
                         timeToNextCheck = result;
@@ -10182,6 +10210,7 @@ class HoatDongNgay {
                 await luanvo.thueTieuViem();
                 await luanvo.doLuanVo(true);
             } else {
+                countdownTimer.set('luanvo', delay);
                 this.luanvoTimeout = setTimeout(() => this.scheduleLuanVo(), delay);
             }
         }
@@ -10276,6 +10305,7 @@ class HoatDongNgay {
         async scheduleHoatDongNgay() {
             const isDone = taskTracker.isTaskDone(this.accountId, 'hoatdongngay');
             if (isDone) {
+                console.log("[Auto] Hoạt Động Ngày đã hoàn thành, không cần lên lịch.");
                 if (this.hoatdongngayTimeout) clearTimeout(this.hoatdongngayTimeout);
                 return;
             }
@@ -10283,13 +10313,17 @@ class HoatDongNgay {
             const isPhucLoiDone = taskTracker.isTaskDone(this.accountId, 'phucloi');
             const isDiemDanhDone = taskTracker.isTaskDone(this.accountId, 'diemdanh');
             const isLuanVoDone = taskTracker.isTaskDone(this.accountId, 'luanvo');
-            if (isHoangVucDone && isPhucLoiDone && isDiemDanhDone && isLuanVoDone) {
+            if (isHoangVucDone && isPhucLoiDone && isDiemDanhDone ) {
+                console.log("[Auto] Điều kiện đã đủ, đang thực hiện Hoạt Động Ngày...");
                 try {
                     await hoatdongngay.doHoatDongNgay();
+                    // Cập nhật trạng thái UI sau khi task chạy xong
+                    updateAllQuestButtons().catch(() => {});
                     if (this.hoatdongngayTimeout) clearTimeout(this.hoatdongngayTimeout);
                     if (taskTracker.isTaskDone(this.accountId, 'hoatdongngay') && this.hoatdongngayTimeout) {
                         return;
                     } else {
+                        countdownTimer.set('hoatdongngay', 5*60*1000);
                         this.hoatdongngayTimeout = setTimeout(() => this.scheduleHoatDongNgay(), 5*60*1000);
                     }
                 }
@@ -10298,6 +10332,7 @@ class HoatDongNgay {
                 }
             } else {
                 if (this.hoatdongngayTimeout) clearTimeout(this.hoatdongngayTimeout);
+                countdownTimer.set('hoatdongngay', this.INTERVAL_HOAT_DONG_NGAY);
                 this.hoatdongngayTimeout = setTimeout(() => this.scheduleHoatDongNgay(), this.INTERVAL_HOAT_DONG_NGAY);
             }
         }
