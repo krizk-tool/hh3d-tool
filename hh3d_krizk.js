@@ -11334,8 +11334,8 @@ class HoatDongNgay {
         const automatic = new AutomationManager();
         window.hh3dAutomatic = automatic; // Save to window for access from UI
 
-        // Đợi 2000ms để UI ổn định
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        // Đợi 1500ms để UI ổn định
+        await new Promise(resolve => setTimeout(resolve, 15000));
 
         automatic.checkAndStart();
         if (location.pathname.includes("khoang-mach") || location.href.includes("khoang-mach")) {            
