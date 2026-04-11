@@ -542,7 +542,7 @@ class TaskTracker {
 
                 hoangvuc: { done: false, nextTime: null },
                 dothach: { betplaced: false, reward_claimed: false, turn: 1 },
-                luanvo: { battle_joined: false, auto_accept: false, done: false },
+                // luanvo: { battle_joined: false, auto_accept: false, done: false },
                 khoangmach: {done: false, nextTime: null },
                 tienduyen: {last_check: null, done: false },
                 hoatdongngay: {done: false },
@@ -677,7 +677,7 @@ class TaskTracker {
         */
         resetAllTasks(accountId) {
             const accountData = this.getAccountData(accountId);
-            const taskNames = ['diemdanh', 'thiluyen', 'bicanh', 'phucloi', 'hoangvuc', 'luanvo', 'khoangmach', 'hoatdongngay', 'tienduyen', 'luotkhactranvip', 'phaptuong'];
+            const taskNames = ['diemdanh', 'thiluyen', 'bicanh', 'phucloi', 'hoangvuc', 'khoangmach', 'hoatdongngay', 'tienduyen', 'luotkhactranvip', 'phaptuong'];
             let resetCount = 0;
             taskNames.forEach(taskName => {
                 if (accountData[taskName] && accountData[taskName].done) {
@@ -1033,19 +1033,19 @@ class TaskTracker {
             }
 
             // Custom controls: Luận Võ inline mode + target ID
-            if (quest.hasCustomControls && quest.taskId === 'luanvo') {
-                const lvMode = localStorage.getItem('luanVoChallengeMode') || 'auto';
-                const lvTargetId = localStorage.getItem(`luanVoTargetUserId_${accountId}`) || '';
-                buttonHTML = `
-                    <select class="quest-select luanvo-mode-select" title="Chế độ thách đấu">
-                        <option value="auto" ${lvMode !== 'manual' ? 'selected' : ''}>Tự động</option>
-                        <option value="manual" ${lvMode === 'manual' ? 'selected' : ''}>Nhập ID</option>
-                    </select>
-                    <input type="text" class="quest-input luanvo-target-input" placeholder="ID đối thủ"
-                           value="${lvTargetId}"
-                           style="display:${lvMode === 'manual' ? 'inline-block' : 'none'};width:70px">
-                ` + buttonHTML;
-            }
+            // if (quest.hasCustomControls && quest.taskId === 'luanvo') {
+            //     const lvMode = localStorage.getItem('luanVoChallengeMode') || 'auto';
+            //     const lvTargetId = localStorage.getItem(`luanVoTargetUserId_${accountId}`) || '';
+            //     buttonHTML = `
+            //         <select class="quest-select luanvo-mode-select" title="Chế độ thách đấu">
+            //             <option value="auto" ${lvMode !== 'manual' ? 'selected' : ''}>Tự động</option>
+            //             <option value="manual" ${lvMode === 'manual' ? 'selected' : ''}>Nhập ID</option>
+            //         </select>
+            //         <input type="text" class="quest-input luanvo-target-input" placeholder="ID đối thủ"
+            //                value="${lvTargetId}"
+            //                style="display:${lvMode === 'manual' ? 'inline-block' : 'none'};width:70px">
+            //     ` + buttonHTML;
+            // }
 
             // Custom controls: Mua Đan
             if (quest.hasCustomControls && quest.taskId === 'muadan') {
@@ -1413,7 +1413,7 @@ async function updateAllQuestButtons() {
             case 'thiluyen':
             case 'phucloi':
             case 'hoangvuc':
-            case 'luanvo':
+            // case 'luanvo':
             case 'khoangmach':
             case 'luotkhactranvip':
             case 'tienduyen':
@@ -3354,67 +3354,67 @@ class TienDuyen {
     }
 }
 
-    // ===============================================
-    // TIÊN DUYÊN - TẶNG HOA
-    // ===============================================
+// ===============================================
+// TIÊN DUYÊN - TẶNG HOA
+// ===============================================
 
-    class TangHoa {
-        nonce;
-        initialized = false;
+class TangHoa {
+    nonce;
+    initialized = false;
 
-        constructor() {
-            this.apiUrl = weburl + "wp-json/hh3d/v1/action";
-            this.accountId = accountId;
-                    }
+    constructor() {
+        this.apiUrl = weburl + "wp-json/hh3d/v1/action";
+        this.accountId = accountId;
+                }
 
-        async init() {
-            // console.log("chạy tặng hoa");
-            this.nonce = await getNonce();
-            // console.log("getNonce type:", typeof getNonce);
-            // console.log("getNonce source:", getNonce.toString());
-            this.securityToken = await getSecurityToken(weburl + 'tien-duyen?t');
-            this.initialized = true;
-                    }
+    async init() {
+        // console.log("chạy tặng hoa");
+        this.nonce = await getNonce();
+        // console.log("getNonce type:", typeof getNonce);
+        // console.log("getNonce source:", getNonce.toString());
+        this.securityToken = await getSecurityToken(weburl + 'tien-duyen?t');
+        this.initialized = true;
+    }
 
-        async #post(action, body = {}) {
-            const res = await fetch(this.apiUrl,
-                        {
-                credentials: "include",
-                method: "POST",
-                headers: {
-                                "Accept": "*/*",
-                                "Content-Type": "application/json",
-                                "X-WP-Nonce": this.nonce
-                            },
-                body: JSON.stringify({ action, ...body
-                            })
-                        });
-            return res.json();
-                    }
-                    // Lấy danh sách bạn bè
-        async getFriends() {
-            return await this.#post("get_friends_td");
-                    }
-                    // Kiểm tra giới hạn quà tặng
-        async checkGiftLimit(friendId, costType = "tien_ngoc") {
-            return await this.#post("check_daily_gift_limit",
-                        {
-                user_id: this.accountId,
-                friend_id: friendId, // user_id của bạn bè
-                cost_type: costType
-                        });
-                    }
-                    // Tặng quà
-        async giftToFriend(friendId, giftType = "hoa_hong", costType = "tien_ngoc") {
-            return await this.#post("gift_to_friend",
-                        {
-                user_id: this.accountId,
-                friend_id: friendId, // user_id của bạn bè
-                gift_type: giftType,
-                cost_type: costType
-                        });
-                    }
-                    // Hàm chính: tặng hoa cho đúng số người đã chọn
+    async #post(action, body = {}) {
+        const res = await fetch(this.apiUrl,
+                    {
+            credentials: "include",
+            method: "POST",
+            headers: {
+                        "Accept": "*/*",
+                        "Content-Type": "application/json",
+                        "X-WP-Nonce": this.nonce
+                    },
+            body: JSON.stringify({ action, ...body
+                        })
+                    });
+        return res.json();
+                }
+    // Lấy danh sách bạn bè
+    async getFriends() {
+        return await this.#post("get_friends_td");
+                }
+    // Kiểm tra giới hạn quà tặng
+    async checkGiftLimit(friendId, costType = "tien_ngoc") {
+        return await this.#post("check_daily_gift_limit",
+        {
+            user_id: this.accountId,
+            friend_id: friendId, // user_id của bạn bè
+            cost_type: costType
+        });
+    }
+    // Tặng quà
+    async giftToFriend(friendId, giftType = "hoa_hong", costType = "tien_ngoc") {
+        return await this.#post("gift_to_friend",
+        {
+            user_id: this.accountId,
+            friend_id: friendId, // user_id của bạn bè
+            gift_type: giftType,
+            cost_type: costType
+        });
+    }
+    // Hàm chính: tặng hoa cho đúng số người đã chọn
     async run(selectedCount) {
         try {
             if (!this.initialized) {
@@ -11114,7 +11114,7 @@ class HoatDongNgay {
         const vandap = new VanDap();
         const dothach = new DoThach();
         const hoangvuc = new HoangVuc();
-        const luanvo = new LuanVo();
+        // const luanvo = new LuanVo();
         const bicanh = new BiCanh();
         const bicanhhiente = new BiCanhHienTe();
         const khoangmach = new KhoangMach();
