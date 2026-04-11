@@ -1184,8 +1184,7 @@ async function loadHH3DProfile() {
             autorunBtn.addEventListener('click', async () => {
                 let enabled = localStorage.getItem('autorunEnabled') !== '0';
                 if (!enabled) {
-                    // Nếu chưa bật tự động chạy, bật nó lên
-                    localStorage.setItem('autorunEnabled', '1');
+                    // localStorage.setItem('autorunEnabled', '1');
                     autorunBtn.classList.add('running');
                     autorunBtn.textContent = 'Dừng Lại';
                     if (window.hh3dAutomatic) {
@@ -1193,8 +1192,7 @@ async function loadHH3DProfile() {
                     }
                     showNotification('Tự động chạy khi tải trang đã được bật', 'info');
                 } else {
-                    // Nếu đã bật, tắt nó đi
-                    localStorage.setItem('autorunEnabled', '0');
+                    // localStorage.setItem('autorunEnabled', '0'); 
                     autorunBtn.classList.remove('running');
                     autorunBtn.textContent = 'Bắt Đầu';
                     if (window.hh3dAutomatic) {
@@ -1849,17 +1847,17 @@ function showGuideModal() {
                     <p><strong style="color:#bb9af7;">🤖 Bắt Đầu / Dừng Lại:</strong> Bật/tắt chế độ tự động chạy tất cả nhiệm vụ đã bật autorun.</p>
                     <p><strong style="color:#bb9af7;">🔄 Nút làm mới:</strong> Tải lại thông tin xu và tiến độ nhiệm vụ.</p>
                     <p><strong style="color:#bb9af7;">⚙️ Cài đặt:</strong> Cấu hình chi tiết cho từng nhiệm vụ (thời gian chờ, số lượt,...).</p>
-                    <p><strong style="color:#bb9af7;">💎 Hấp Thụ:</strong> Nhập mã CODE khuyến mãi để nhận thưởng.</p>
+                    <p><strong style="color:#bb9af7;">💎 Hấp Thụ:</strong> Nhập mã CODE để nhận thưởng.</p>
                     <hr style="border-color:#33467C;margin:10px 0;">
                     <p><strong style="color:#9ece6a;">📋 Danh sách nhiệm vụ:</strong></p>
                     <ul style="padding-left:18px;margin:4px 0;">
                         <li>Nhấn nút hành động (Đánh, Nhận, Khắc,...) để chạy thủ công.</li>
                         <li>Các nút phụ (📦🙏🌺👑🎁) thực hiện hành động bổ sung.</li>
-                        <li>Toggle <em>Auto</em> trên mỗi task để bật/tắt autorun riêng.</li>
+                        <li>Bấm vào icon trên mỗi task để bật/tắt tự động chạy mỗi task.</li>
                         <li>⏳ Thời gian đếm ngược hiển thị khi task đang chờ lượt tiếp.</li>
                     </ul>
                     <hr style="border-color:#33467C;margin:10px 0;">
-                    <p><strong style="color:#f7768e;">⚠️ Lưu ý:</strong> Đảm bảo đã đăng nhập trước khi sử dụng. Nếu gặp lỗi, thử bấm 🔄 để làm mới.</p>
+                    <p><strong style="color:#f7768e;">⚠️ Lưu ý:</strong> Đảm bảo đã đăng nhập trước khi sử dụng.</p>
                 </div>
             </div>
         `;
@@ -5846,7 +5844,6 @@ function extractRedeemNonce(html) {
             this.getUsersInMineNonce = null;
             this.securityToken = null;
             this.buffBought = false;
-            this.MINE_DATA_API_URL = 'https://script.google.com/macros/s/AKfycbxJoJniBQP6JHLpSHbLwYqmoihZj0YZ9qIWp9LsJoJOCANJPTiu7s8_6v9ecVZjtD40/exec';
         }
 
         delay(ms) {
@@ -6602,37 +6599,11 @@ function extractRedeemNonce(html) {
             // 2. Logic Lấy dữ liệu
             let minesData = [];
             let dataTimestamp = 0;
-            let dataSource = '☁️ Server (Cache)';
+            let dataSource = '🕵️ Quét trực tiếp';
 
-            try {
-                console.log('[Khoáng Mạch] Đang kiểm tra dữ liệu trên Server...');
-                const serverData = await fetch(this.MINE_DATA_API_URL).then(r => r.json());
-                const now = Date.now();
-
-                if (serverData && serverData.timestamp && (now - serverData.timestamp < 5 * 60 * 1000)) {
-                    minesData = serverData.mines || [];
-                    // Áp dụng bộ lọc mỏ cụ thể nếu có
-                    if (mineIdsFilter && mineIdsFilter.length > 0) {
-                        const _filterSet = new Set(mineIdsFilter);
-                        minesData = minesData.filter(m => _filterSet.has(String(m.id)));
-                    }
-                    dataTimestamp = serverData.timestamp;
-                    showNotification(`Dữ liệu từ Server (${this.timeSince(dataTimestamp)})`, 'success');
-                } else {
-                    throw new Error('Dữ liệu cũ');
-                }
-            } catch (err) {
-                console.log('[Khoáng Mạch] ' + err.message);
-                dataSource = '🕵️ Quét trực tiếp';
-                showNotification('Đang quét trực tiếp...', 'info');
-
-                // Quét mới (truyền callback xuống để cập nhật UI)
-                minesData = await this.scanAllMinesRawData(onProgressCallback, mineIdsFilter);
-                dataTimestamp = Date.now();
-
-                // Upload lên server (Dùng hàm đã sửa header ở trên)
-                // this.uploadDataToServer(minesData);
-            }
+            showNotification('Đang quét trực tiếp...', 'info');
+            minesData = await this.scanAllMinesRawData(onProgressCallback, mineIdsFilter);
+            dataTimestamp = Date.now();
 
             // 🔥 BƯỚC QUAN TRỌNG: CHUẨN HÓA DỮ LIỆU (Normalize)
             // Phải đặt ở đây để chạy cho CẢ trường hợp lấy từ Server HOẶC quét mới
@@ -6852,51 +6823,6 @@ function extractRedeemNonce(html) {
             if (onProgress) onProgress(100, 'Hoàn tất!');
             console.log(`${this.logPrefix} ✅ Hoàn tất quét. Tổng số mỏ có người: ${rawResult.length}`);
             return rawResult;
-        }
-
-        // Hàm phụ: Upload lên Server
-        async uploadDataToServer(minesData) {
-            // Check sơ bộ: Nếu không có dữ liệu thì không gửi
-            if (!minesData || minesData.length === 0) return;
-
-            try {
-                console.log(`[Khoáng Mạch] Đang đồng bộ ${minesData.length} mỏ lên server...`);
-
-                // PAYLOAD Ở ĐÂY:
-                const payload = JSON.stringify({
-                    mines: minesData
-                });
-
-                // (Tùy chọn) Log dung lượng để kiểm tra xem có quá 50KB không
-                console.log(`[Khoáng Mạch] Payload size: ~${Math.round(payload.length / 1024)} KB`);
-
-                await fetch(this.MINE_DATA_API_URL, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: payload // <--- Gửi cục này
-                });
-
-                console.log('[Khoáng Mạch] Đã gửi yêu cầu đồng bộ.');
-            } catch (e) {
-                console.warn('[Khoáng Mạch] Lỗi upload:', e);
-            }
-        }
-
-        // Hàm phụ: Format thời gian
-        timeSince(date) {
-            const seconds = Math.floor((new Date() - date) / 1000);
-            let interval = seconds / 31536000;
-            if (interval > 1) return Math.floor(interval) + " năm trước";
-            interval = seconds / 2592000;
-            if (interval > 1) return Math.floor(interval) + " tháng trước";
-            interval = seconds / 86400;
-            if (interval > 1) return Math.floor(interval) + " ngày trước";
-            interval = seconds / 3600;
-            if (interval > 1) return Math.floor(interval) + " giờ trước";
-            interval = seconds / 60;
-            if (interval > 1) return Math.floor(interval) + " phút trước";
-            return Math.floor(seconds) + " giây trước";
         }
 
         /**
