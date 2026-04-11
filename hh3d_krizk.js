@@ -11,8 +11,6 @@
     // @grant         unsafeWindow
     // @connect       raw.githubusercontent.com
 
-const { load } = require("cheerio");
-
     // ==/UserScript==
     (async function() {
         'use strict';
