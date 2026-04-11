@@ -1844,7 +1844,7 @@ function showGuideModal() {
                     <button id="guide-close-btn" style="background:none;border:none;color:#888;font-size:20px;cursor:pointer;padding:0 4px;">&times;</button>
                 </div>
                 <div style="border-top:1px solid #33467C;padding-top:12px;">
-                    <p><strong style="color:#bb9af7;">Bắt Đầu / Dừng Lại:</strong> Bật/tắt chế độ tự động chạy tất cả nhiệm vụ.</p>
+                    <p><strong style="color:#bb9af7;">Bắt Đầu / Dừng Lại:</strong> Chạy tự động tất cả nhiệm vụ.</p>
                     <p><strong style="color:#bb9af7;">🤖:</strong> Bật/tắt chế độ tự động chạy khi load trang.</p>
                     <p><strong style="color:#bb9af7;">🔄 Nút làm mới:</strong> Tải lại thông tin xu và tiến độ nhiệm vụ.</p>
                     <p><strong style="color:#bb9af7;">⚙️ Cài đặt:</strong> Cấu hình chi tiết cho từng nhiệm vụ.</p>
@@ -6850,7 +6850,7 @@ function extractRedeemNonce(html) {
                                 <img src="${esc(avatarUrl || u.avatar)}" alt="avatar" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1px solid #555; cursor:pointer;">
                             </a>
                             <div style="display: flex; flex-direction: column; min-width: 0; flex: 1;">
-                                <div style="color: #ff6b6b; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${esc(u.name)} (${esc(u.id)})</div>
+                                <div style="color: #ff6b6b; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${esc(u.name)} (${id})</div>
                                 <div style="font-size: 11px; color: #777; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${esc(u.tongMonName || 'Vô phái')} - ${esc(u.role || 'Thành viên')}</div>
                             </div>
                         </div>
@@ -7026,7 +7026,7 @@ function extractRedeemNonce(html) {
                                     <img src="${avatarUrl || u.a || u.avatar}" alt="avatar" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1px solid #555; cursor:pointer;">
                                 </a>
                                 <div style="display: flex; flex-direction: column; min-width: 0; flex: 1;">
-                                    <div style="color: ${nameColor}; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${esc(u.name)} ${allyLabel ? `<span style="font-size: 10px;">${allyLabel}</span>` : ''} (${esc(u.id)})</div>
+                                    <div style="color: ${nameColor}; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${esc(u.name)} ${allyLabel ? `<span style="font-size: 10px;">${allyLabel}</span>` : ''} (${id})</div>
                                     <div style="font-size: 11px; color: #777; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${esc(u.tongMonName || 'Vô phái')} - ${esc(u.role || 'Thành viên')}</div>
                                 </div>
                             </div>
