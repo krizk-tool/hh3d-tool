@@ -10,6 +10,9 @@
     // @run-at        document-start
     // @grant         unsafeWindow
     // @connect       raw.githubusercontent.com
+
+const { load } = require("cheerio");
+
     // ==/UserScript==
     (async function() {
         'use strict';
@@ -852,6 +855,12 @@ class TaskTracker {
             hasButton: true,
             buttonText: 'Đào',
             hasSettings: true,
+            hasExtraButton: true,
+            extraButtonText: 'Vào',
+            extraButtonTitle: 'Vào Khoáng Mạch',
+            async extraAction() {
+                window.location.href = '/khoang-mach';
+            },
             async action() {
                 await khoangmach.doKhoangMach();
             }
@@ -1154,7 +1163,7 @@ async function loadHH3DProfile() {
                 </span>
             </div>        
             <div id="promo-form" class="promo-form">
-                <input type="text" id="promo-code-input" placeholder="Nhập CODE" value="${localStorage.getItem('hh3d_promo_code') || ''}" />
+                <input type="text" id="promo-code-input" placeholder="Nhập CODE" value="" />
                 <button id="promo-code-submit">💎 Hấp Thụ</button>
                 <button id="settings-btn" class="settings-btn" title="Cài đặt chung">⚙️</button>
                 <button id="guide-btn" class="settings-btn" title="Hướng dẫn sử dụng">❓</button>
@@ -1973,6 +1982,19 @@ function getSettingsContentForTask(taskId) {
                     <h3>Chung</h3>
 
                     <div class="settings-option">
+                        <label>Giờ tự khởi động lại hàng ngày:</label>
+                        <div style="display:flex;gap:8px;align-items:center;margin-top:6px">
+                            <input type="number" id="general-restart-hour" min="0" max="23" value="${parseInt(localStorage.getItem('selfSchedule_h') ?? '0', 10) || 0}"
+                                style="width:55px;padding:4px 6px;border-radius:4px;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.07);color:#d0d8f0;text-align:center">
+                            <span>giờ</span>
+                            <input type="number" id="general-restart-minute" min="0" max="59" value="${parseInt(localStorage.getItem('selfSchedule_m') ?? '30', 10)}"
+                                style="width:55px;padding:4px 6px;border-radius:4px;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.07);color:#d0d8f0;text-align:center">
+                            <span>phút</span>
+                        </div>
+                        <p class="settings-description">Tự động dừng và chạy lại script vào giờ đã đặt (mặc định 00:30)<br>Bấm lưu lại để áp dụng thay đổi</p>
+                    </div>
+
+                    <div class="settings-option">
                         <label>Nhiệm vụ:</label>
                         <button id="general-reset-tasks-btn" class="settings-save-btn" style="background:rgba(239,68,68,0.2);color:#ef4444;border:1px solid rgba(239,68,68,0.3);margin-top:6px;width:100%">
                             🔄 Reset trạng thái hoàn thành
@@ -1981,7 +2003,16 @@ function getSettingsContentForTask(taskId) {
 
                     <div class="settings-option" style="margin-top:10px">
                         <label>Truy cập nhanh:</label>
-                        <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:6px">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;margin-top:6px">
+                            <span style="font-size:11px;color:#9ca3af">Mở:</span>
+                            <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:#e0e0e0;cursor:pointer">
+                                <input type="radio" name="link-open-mode" id="link-mode-new" value="new" style="cursor:pointer"> Tab mới
+                            </label>
+                            <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:#e0e0e0;cursor:pointer">
+                                <input type="radio" name="link-open-mode" id="link-mode-current" value="current" style="cursor:pointer"> Tab hiện tại
+                            </label>
+                        </div>
+                        <div style="display:flex;flex-wrap:wrap;gap:5px">
                             <button class="general-link-btn" data-path="/cai-dat-tai-khoan">⚙️ Tài khoản</button>
                             <button class="general-link-btn" data-path="/bang-xep-hang-truyen-thua">🏆 BXH Truyền Thừa</button>
                             <button class="general-link-btn" data-path="/bang-xep-hang">📊 BXH Tu Vi</button>
@@ -2119,8 +2150,12 @@ function getSettingsContentForTask(taskId) {
                     <h3>Tìm Kẻ Địch (Khoáng Mạch)</h3>
 
                     <div class="settings-option">
-                        <label for="kmsearch-enemies-input">ID kẻ địch (cách nhau bằng dấu <b>;</b>):</label>
-                        <input type="text" id="kmsearch-enemies-input" class="settings-input" placeholder="12345;67890;65454" value="${_savedEnemyIds}" />
+                        <label>ID kẻ địch:</label>
+                        <div style="display:flex;gap:6px;align-items:center;margin-top:6px">
+                            <input type="text" id="kmsearch-enemy-add-input" class="settings-input" style="flex:1" placeholder="Nhập ID kẻ địch..." />
+                            <button id="kmsearch-enemy-add-btn" style="padding:4px 12px;font-size:12px;border-radius:4px;border:1px solid rgba(255,255,255,0.2);background:rgba(99,179,237,0.15);color:#63b3ed;cursor:pointer;white-space:nowrap">➕ Thêm</button>
+                        </div>
+                        <div id="kmsearch-enemy-list" style="display:flex;flex-wrap:wrap;gap:5px;margin-top:8px"></div>
                     </div>
 
                     <div class="settings-option">
@@ -2172,10 +2207,25 @@ function bindSettingsEventsForTask(taskId) {
                     updateAllQuestButtons();
                 });
             }
+            // Restore saved open-mode preference
+            const _linkModeKey = 'general_link_open_mode';
+            const _savedMode = localStorage.getItem(_linkModeKey) || 'new';
+            const _modeNewRadio = document.getElementById('link-mode-new');
+            const _modeCurrentRadio = document.getElementById('link-mode-current');
+            if (_modeNewRadio) _modeNewRadio.checked = _savedMode === 'new';
+            if (_modeCurrentRadio) _modeCurrentRadio.checked = _savedMode === 'current';
+            document.querySelectorAll('input[name="link-open-mode"]').forEach(radio => {
+                radio.addEventListener('change', () => localStorage.setItem(_linkModeKey, radio.value));
+            });
+
             document.querySelectorAll('.general-link-btn').forEach(btn => {
                 btn.addEventListener('click', () => {
                     const path = btn.getAttribute('data-path');
-                    if (path) window.open(weburl.replace(/\/$/, '') + path, '_blank');
+                    if (!path) return;
+                    const url = weburl.replace(/\/$/, '') + path;
+                    const mode = localStorage.getItem(_linkModeKey) || 'new';
+                    if (mode === 'current') window.location.href = url;
+                    else window.open(url, '_blank');
                 });
             });
             break;
@@ -2225,19 +2275,54 @@ function bindSettingsEventsForTask(taskId) {
             
         case 'kmsearch': {
             const ks_accountId = localStorage.getItem('hh3d_account_id') || '';
-            const ks_enemiesInput = document.getElementById('kmsearch-enemies-input');
+            const ks_enemyAddInput = document.getElementById('kmsearch-enemy-add-input');
+            const ks_enemyAddBtn = document.getElementById('kmsearch-enemy-add-btn');
+            const ks_enemyList = document.getElementById('kmsearch-enemy-list');
+            const ks_enemyKey = `khoangmach_search_enemies_${ks_accountId}`;
+
+            const ks_getEnemyIds = () => (localStorage.getItem(ks_enemyKey) || '').split(';').map(s => s.trim()).filter(Boolean);
+            const ks_saveEnemyIds = (ids) => localStorage.setItem(ks_enemyKey, ids.join(';'));
+            const ks_renderEnemyTags = () => {
+                if (!ks_enemyList) return;
+                const ids = ks_getEnemyIds();
+                ks_enemyList.innerHTML = '';
+                if (ids.length === 0) {
+                    ks_enemyList.innerHTML = '<span style="color:#6b7280;font-size:11px">Chưa có ID nào</span>';
+                    return;
+                }
+                ids.forEach(id => {
+                    const tag = document.createElement('div');
+                    tag.style.cssText = 'display:inline-flex;align-items:center;gap:4px;padding:3px 8px;background:rgba(99,179,237,0.12);border:1px solid rgba(99,179,237,0.3);border-radius:12px;font-size:12px;color:#63b3ed';
+                    tag.innerHTML = `<span>${id}</span><button style="background:none;border:none;color:#fc8181;cursor:pointer;font-size:13px;line-height:1;padding:0" data-id="${id}">&times;</button>`;
+                    tag.querySelector('button').addEventListener('click', () => {
+                        const cur = ks_getEnemyIds().filter(x => x !== id);
+                        ks_saveEnemyIds(cur);
+                        ks_renderEnemyTags();
+                    });
+                    ks_enemyList.appendChild(tag);
+                });
+            };
+
+            if (ks_enemyAddBtn && ks_enemyAddInput) {
+                const ks_doAdd = () => {
+                    const val = ks_enemyAddInput.value.trim();
+                    if (!val) return;
+                    const cur = ks_getEnemyIds();
+                    if (!cur.includes(val)) { cur.push(val); ks_saveEnemyIds(cur); }
+                    ks_enemyAddInput.value = '';
+                    ks_renderEnemyTags();
+                };
+                ks_enemyAddBtn.addEventListener('click', ks_doAdd);
+                ks_enemyAddInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); ks_doAdd(); } });
+            }
+            ks_renderEnemyTags();
+
             const ks_tongMonInput = document.getElementById('kmsearch-tongmon-input');
             const ks_tongMonViewBtn = document.getElementById('kmsearch-tongmon-view-btn');
             const ks_tongMonContainer = document.getElementById('kmsearch-tongmon-container');
             const ks_mineContainer = document.getElementById('kmsearch-mine-container');
             const ks_mineLoadBtn = document.getElementById('kmsearch-mine-load-btn');
             const ks_mineAllChk = document.getElementById('kmsearch-mine-all');
-
-            if (ks_enemiesInput) {
-                ks_enemiesInput.addEventListener('input', () => {
-                    localStorage.setItem(`khoangmach_search_enemies_${ks_accountId}`, ks_enemiesInput.value);
-                });
-            }
 
             if (ks_tongMonInput && ks_tongMonContainer && ks_tongMonViewBtn) {
                 const ks_selKey = `khoangmach_search_tongmon_${ks_accountId}`;
@@ -2465,10 +2550,14 @@ function saveAllSettings() {
     
     try {
         switch(taskId) {
-            case 'general':
-                // No save needed — handled by inline event handlers
+            case 'general': {
+                const h = parseInt(document.getElementById('general-restart-hour')?.value ?? '0', 10) || 0;
+                const m = parseInt(document.getElementById('general-restart-minute')?.value ?? '30', 10);
+                localStorage.setItem('selfSchedule_h', String(h));
+                localStorage.setItem('selfSchedule_m', String(m));
                 saved = true;
                 break;
+            }
 
             case 'hoangvuc':
                 const maximizeDamage = document.getElementById('hoangvuc-maximize-damage')?.checked || false;
@@ -6243,12 +6332,9 @@ function extractRedeemNonce(html) {
                 }
 
                 // Kiểm tra ngoại tông
-                let outer = users.some(u => !u.lien_minh && !u.dong_mon);
-                if (outer && outerNotification) {
-                    // Thông báo nếu vẫn còn ngoại tông
-                    if (confirm('Ngoại tông xâm nhập khoáng mạch, \n Bạn có muốn đến khoáng mạch?')) {
-                        window.location.href = this.khoangMachUrl;
-                    }
+                const outerUsers = users.filter(u => !u.lien_minh && !u.dong_mon);
+                if (outerUsers.length > 0 && outerNotification) {
+                    this.showOuterEnemyModal(outerUsers, targetMine);
                 }
 
 
@@ -6816,6 +6902,113 @@ function extractRedeemNonce(html) {
         }
 
         /**
+         * Hiển thị modal cảnh báo ngoại tông trong mỏ hiện tại
+         * @param {Array} outerUsers Danh sách user ngoại tông
+         * @param {Object} mine Thông tin mỏ hiện tại
+         */
+        async showOuterEnemyModal(outerUsers, mine) {
+            const PANEL_ID = 'outerEnemyModal';
+            const oldPanel = document.getElementById(PANEL_ID);
+            if (oldPanel) oldPanel.remove();
+
+            const accountId = await getAccountId();
+            const esc = (v) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+            const usersHtml = (await Promise.all(outerUsers.map(async (u) => {
+                const attackToken = u.attack_token || u.att || u.id;
+                const avatarUrl = u.avatar || await this.decodeAvatar(u.avatar, accountId);
+                const id = (await this.getIdfromAvatar(avatarUrl)) || u.id;
+                return `
+                    <div style="padding: 8px 0; border-bottom: 1px dashed #333; display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+                        <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
+                            <img src="${esc(avatarUrl || u.avatar)}" alt="avatar" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1px solid #555; flex-shrink: 0;">
+                            <div style="display: flex; flex-direction: column; min-width: 0; flex: 1;">
+                                <div style="color: #ff6b6b; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${esc(u.name)} (${esc(u.id)})</div>
+                                <div style="font-size: 11px; color: #777; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${esc(u.tongMonName || 'Vô phái')} - ${esc(u.role || 'Thành viên')}</div>
+                            </div>
+                        </div>
+                        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0;">
+                            <div style="display: flex; gap: 5px;">
+                                <button class="oe-btn-tuvi" data-uid="${id}" data-attack-token="${attackToken}" style="border:none; background:#039be5; color:white; border-radius:3px; padding:3px 8px; font-size:11px; cursor:pointer; font-weight:bold;">👁</button>
+                                <button class="oe-btn-attack" data-uid="${id}" data-attack-token="${attackToken}" data-mid="${mine.id}" style="border:none; background:#d32f2f; color:white; border-radius:3px; padding:3px 8px; font-size:11px; cursor:pointer; font-weight:bold;">👊</button>
+                            </div>
+                            <div id="oe-info-${id}" style="font-size:10px; color:#b0bec5; min-height:14px;"></div>
+                        </div>
+                    </div>
+                `;
+            }))).join('');
+
+            const panel = document.createElement('div');
+            panel.id = PANEL_ID;
+            panel.style.cssText = `
+                position: fixed; right: 20px; bottom: 20px;
+                width: 400px; max-width: 95vw;
+                background: #1a1a1a; color: #e0e0e0;
+                border: 1px solid #c62828; border-radius: 8px;
+                box-shadow: 0 10px 25px rgba(0,0,0,0.7);
+                z-index: 999999; font-family: sans-serif;
+                display: flex; flex-direction: column;
+                overflow: hidden; font-size: 13px;
+            `;
+
+            panel.innerHTML = `
+                <div style="padding: 10px 12px; background: #c62828; border-bottom: 1px solid #b71c1c;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="font-weight: bold; font-size: 14px; color: #fff;">
+                            ⚠️ Ngoại Tông Trong Mỏ <span style="background:#b71c1c; border-radius:10px; padding:1px 7px;">${outerUsers.length}</span>
+                        </div>
+                        <div style="display: flex; gap: 5px;">
+                            <button id="oe-goto" style="background:#fff3e0; color:#e65100; border:none; border-radius:4px; padding:4px 8px; font-size:11px; cursor:pointer; font-weight:bold;">🏔 Đến KM</button>
+                            <button id="oe-close" style="background:#333; border:none; color:#fff; width:28px; height:28px; border-radius:4px; cursor:pointer;">✕</button>
+                        </div>
+                    </div>
+                    <div style="font-size:11px; color:#ffcdd2; margin-top:3px;">⛏ ${esc(mine.name)}</div>
+                </div>
+                <div style="padding: 8px 12px; max-height: 55vh; overflow-y: auto; background: #1a1a1a;">
+                    ${usersHtml}
+                </div>
+            `;
+
+            document.body.appendChild(panel);
+
+            panel.querySelector('#oe-goto').onclick = () => { window.location.href = this.khoangMachUrl; };
+            panel.querySelector('#oe-close').onclick = () => panel.remove();
+
+            panel.querySelectorAll('.oe-btn-tuvi').forEach(btn => {
+                btn.onclick = async (e) => {
+                    e.stopPropagation();
+                    const uid = btn.getAttribute('data-uid');
+                    const resDiv = document.getElementById(`oe-info-${uid}`);
+                    btn.disabled = true; btn.textContent = '...';
+                    if (resDiv) resDiv.textContent = 'Đang xem...';
+                    try {
+                        const tierText = await hienTuviKM.getProfileTier(uid);
+                        if (resDiv) resDiv.textContent = tierText || 'K.Rõ';
+                    } catch (err) {
+                        if (resDiv) resDiv.textContent = 'Lỗi';
+                    } finally {
+                        btn.textContent = '👁'; btn.disabled = false;
+                    }
+                };
+            });
+
+            panel.querySelectorAll('.oe-btn-attack').forEach(btn => {
+                btn.onclick = (e) => {
+                    e.stopPropagation();
+                    const attackToken = btn.getAttribute('data-attack-token');
+                    const mid = btn.getAttribute('data-mid');
+                    btn.textContent = '⚔';
+                    if (typeof khoangmach !== 'undefined' && khoangmach.attackUser) {
+                        khoangmach.attackUser(attackToken, mid);
+                        setTimeout(() => { btn.textContent = '✔'; }, 500);
+                    } else {
+                        showNotification('Lỗi: Không tìm thấy hàm tấn công!', 'error');
+                    }
+                };
+            });
+        }
+
+        /**
          * Hiển thị kết quả tìm kiếm với thông tin nguồn và thời gian
          * @param {Array} foundUsers Danh sách kẻ địch tìm thấy
          * @param {Number} timestamp Thời gian dữ liệu được tạo (Date.now())
@@ -6904,7 +7097,7 @@ function extractRedeemNonce(html) {
                             <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
                                 <img src="${avatarUrl || u.a || u.avatar}" alt="avatar" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1px solid #555; flex-shrink: 0;">
                                 <div style="display: flex; flex-direction: column; min-width: 0; flex: 1;">
-                                    <div style="color: ${nameColor}; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${esc(u.name)} ${allyLabel ? `<span style="font-size: 10px;">${allyLabel}</span>` : ''}</div>
+                                    <div style="color: ${nameColor}; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${esc(u.name)} ${allyLabel ? `<span style="font-size: 10px;">${allyLabel}</span>` : ''} (${esc(u.id)})</div>
                                     <div style="font-size: 11px; color: #777; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${esc(u.tongMonName || 'Vô phái')} - ${esc(u.role || 'Thành viên')}</div>
                                 </div>
                             </div>
@@ -7363,11 +7556,8 @@ class HoatDongNgay {
         const phaptuong = await khactran.autoActivateSeal();
 
         if (chest1 && chest2 && spin) {
-            taskTracker.markTaskDone(accountId, "hoatdongngay");
-            showNotification(
-                "✅ Hoàn thành hoạt động ngày + vòng quay phúc vận",
-                "success"
-            );
+            taskTracker.markTaskDone(accountId, "hoatdongngay");            
+            showNotification( "✅ Hoàn thành hoạt động ngày + vòng quay phúc vận","success");
         }
     }
 }
@@ -9907,7 +10097,9 @@ class HoatDongNgay {
 
             await new Promise(resolve => setTimeout(resolve, 1000));
             this.scheduleHoatDongNgay();
-            this.selfSchedule(0, 30, 0); // Lên lịch tự động chạy vào 00:30 hàng ngày
+            const _sh = parseInt(localStorage.getItem('selfSchedule_h') ?? '0', 10) || 0;
+            const _sm = parseInt(localStorage.getItem('selfSchedule_m') ?? '30', 10);
+            this.selfSchedule(_sh, _sm, 0); // Lên lịch tự động chạy theo cài đặt (mặc định 00:30 hàng ngày)
             // this.applyPromoCode();
         }
         async eventSchedule() {
@@ -9945,9 +10137,9 @@ class HoatDongNgay {
 
             }
             // Gọi đệ quy để duy trì vòng lặp vĩnh viễn
-            setTimeout(() => {
-                this.eventSchedule();
-            }, waitTime + (this.delay || 0));
+            // setTimeout(() => {
+            //     this.eventSchedule();
+            // }, waitTime + (this.delay || 0));
         }
 
 
@@ -10313,6 +10505,7 @@ class HoatDongNgay {
             if (isDone) {
                 console.log("[Auto] Hoạt Động Ngày đã hoàn thành, không cần lên lịch.");
                 if (this.hoatdongngayTimeout) clearTimeout(this.hoatdongngayTimeout);
+                loadHH3DProfile().catch(() => {});
                 return;
             }
             const isHoangVucDone = taskTracker.isTaskDone(this.accountId, 'hoangvuc');
@@ -11141,8 +11334,8 @@ class HoatDongNgay {
         const automatic = new AutomationManager();
         window.hh3dAutomatic = automatic; // Save to window for access from UI
 
-        // Đợi 1000ms để UI ổn định
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // Đợi 2000ms để UI ổn định
+        await new Promise(resolve => setTimeout(resolve, 2000));
 
         automatic.checkAndStart();
         if (location.pathname.includes("khoang-mach") || location.href.includes("khoang-mach")) {            
