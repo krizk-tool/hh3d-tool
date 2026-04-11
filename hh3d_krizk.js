@@ -6330,6 +6330,7 @@ function extractRedeemNonce(html) {
                 // Kiểm tra ngoại tông
                 const outerUsers = users.filter(u => !u.lien_minh && !u.dong_mon);
                 if (outerUsers.length > 0 && outerNotification) {
+                    showNotification(`Có <b>${outerUsers.length}</b> người chơi ngoại tông trong mỏ!`, 'warn');
                     this.showOuterEnemyModal(outerUsers, targetMine);
                 }
 
