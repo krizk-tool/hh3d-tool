@@ -1182,23 +1182,23 @@ async function loadHH3DProfile() {
         const autorunBtn = document.getElementById('autorun-main-btn');
         if (autorunBtn) {
             autorunBtn.addEventListener('click', async () => {
-                let enabled = localStorage.getItem('autorunEnabled') !== '0';
-                if (!enabled) {
-                    // localStorage.setItem('autorunEnabled', '1');
+                // let enabled = localStorage.getItem('isRunning') !== '0';                
+                if (!window.isRunning) {
                     autorunBtn.classList.add('running');
                     autorunBtn.textContent = 'Dừng Lại';
                     if (window.hh3dAutomatic) {
                         await window.hh3dAutomatic.start();
                     }
-                    showNotification('Tự động chạy khi tải trang đã được bật', 'info');
+                    window.isRunning = true;
+                    showNotification('Bắt đầu chạy tự động', 'info');
                 } else {
-                    // localStorage.setItem('autorunEnabled', '0'); 
                     autorunBtn.classList.remove('running');
                     autorunBtn.textContent = 'Bắt Đầu';
                     if (window.hh3dAutomatic) {
                         await window.hh3dAutomatic.stop();
                     }
-                    showNotification('Tự động chạy khi tải trang đã được tắt', 'info');
+                    window.isRunning = false;
+                    showNotification('Đã dừng chạy tự động', 'info');
                 }           
             });
         }
@@ -1252,16 +1252,16 @@ async function loadHH3DProfile() {
                     const message = autorunEnabled ? 'Tự động chạy khi tải trang đã được bật' : 'Tự động chạy khi tải trang đã được tắt';
                     showNotification(message, 'info');
                 });
-                if (autorunEnabled) {
+                // Robot icon reflects autorunEnabled (auto-start on page load)
+                autorunIcon.classList.toggle('enabled', autorunEnabled);
+                autorunIcon.classList.toggle('disabled', !autorunEnabled);
+                // Button reflects actual running state (window.isRunning)
+                if (window.isRunning) {
                     autorunBtn.classList.add('running');
                     autorunBtn.textContent = 'Dừng Lại';
-                    autorunIcon.classList.toggle('enabled', autorunEnabled);
-                    autorunIcon.classList.toggle('disabled', !autorunEnabled);
                 } else {
                     autorunBtn.classList.remove('running');
                     autorunBtn.textContent = 'Bắt Đầu';
-                    autorunIcon.classList.toggle('enabled', autorunEnabled);
-                    autorunIcon.classList.toggle('disabled', !autorunEnabled);
                 }
             }
             const settingsBtn = document.getElementById('settings-btn');
@@ -1844,9 +1844,10 @@ function showGuideModal() {
                     <button id="guide-close-btn" style="background:none;border:none;color:#888;font-size:20px;cursor:pointer;padding:0 4px;">&times;</button>
                 </div>
                 <div style="border-top:1px solid #33467C;padding-top:12px;">
-                    <p><strong style="color:#bb9af7;">🤖 Bắt Đầu / Dừng Lại:</strong> Bật/tắt chế độ tự động chạy tất cả nhiệm vụ đã bật autorun.</p>
+                    <p><strong style="color:#bb9af7;">Bắt Đầu / Dừng Lại:</strong> Bật/tắt chế độ tự động chạy tất cả nhiệm vụ.</p>
+                    <p><strong style="color:#bb9af7;">🤖:</strong> Bật/tắt chế độ tự động chạy khi load trang.</p>
                     <p><strong style="color:#bb9af7;">🔄 Nút làm mới:</strong> Tải lại thông tin xu và tiến độ nhiệm vụ.</p>
-                    <p><strong style="color:#bb9af7;">⚙️ Cài đặt:</strong> Cấu hình chi tiết cho từng nhiệm vụ (thời gian chờ, số lượt,...).</p>
+                    <p><strong style="color:#bb9af7;">⚙️ Cài đặt:</strong> Cấu hình chi tiết cho từng nhiệm vụ.</p>
                     <p><strong style="color:#bb9af7;">💎 Hấp Thụ:</strong> Nhập mã CODE để nhận thưởng.</p>
                     <hr style="border-color:#33467C;margin:10px 0;">
                     <p><strong style="color:#9ece6a;">📋 Danh sách nhiệm vụ:</strong></p>
@@ -9558,23 +9559,7 @@ class HoatDongNgay {
                 this.timeout = 15000;
                 this.elapsedTime = 0;
                 this.intervalId = null;
-                this.autorunIsRunning = false;
             }
-            setAutorunIsRunning() {
-                this.autorunIsRunning = true;
-                const autorunBtn = document.getElementById('autorun-main-btn');
-                localStorage.setItem('autorunEnabled', '1');
-                if (autorunBtn) {
-                    if (this.autorunIsRunning) {
-                        autorunBtn.classList.add('running');
-                        autorunBtn.textContent = 'Dừng Lại';     
-                    } else {
-                        autorunBtn.classList.remove('running');
-                        autorunBtn.textContent = 'Bắt Đầu';       
-                    }
-                }
-            }
-
 
             start() {
                 console.log("[HH3D Script] ⏳ Đang tìm kiếm vị trí để chèn menu...");
@@ -9652,10 +9637,9 @@ class HoatDongNgay {
             dropdownMenu.appendChild(infoBox);
             
             // Gắn sự kiện cho các nút trong quest skeleton
-            const self = this; // Save reference for callback
             setTimeout(() => {
                 attachQuestButtonHandlers();
-                loadHH3DProfile();
+                loadHH3DProfile();               
             }, 100);
 
                 // Không còn tạo menu groups vì tất cả đã chuyển vào quest list
@@ -9762,118 +9746,6 @@ class HoatDongNgay {
             }
         }
 
-        // ===============================================
-        // TẠO CÁC NÚT ĐIỀU KHIỂN AUTORUN
-        // ===============================================
-        createAutorunControls(parentGroup) {
-            const container = document.createElement('div');
-            container.classList.add('custom-script-khoang-mach-container');
-            parentGroup.appendChild(container);
-
-            const buttonRow = document.createElement('div');
-            buttonRow.classList.add('custom-script-khoang-mach-button-row');
-
-            // Khởi tạo giá trị mặc định
-            if (localStorage.getItem('autorunEnabled') === null) {
-                localStorage.setItem('autorunEnabled', '1');
-            }
-            let autorunEnabled = localStorage.getItem('autorunEnabled') === '1';
-
-            // Nút bật/tắt tự động chạy khi tải
-            const autorunSettingsButton = document.createElement('button');
-            autorunSettingsButton.classList.add('custom-script-hoang-vuc-settings-btn');
-
-            const updateSettingButtonState = (isEnabled) => {
-                autorunSettingsButton.textContent = isEnabled ? 'Bật' : 'Tắt';
-                autorunSettingsButton.style.background = isEnabled ? '#4caf50' : '#f44336';
-                autorunSettingsButton.title = isEnabled ? 'Tự động chạy khi tải trang: Bật' : 'Tự động chạy khi tải trang: Tắt';
-            };
-            updateSettingButtonState(autorunEnabled);
-
-            autorunSettingsButton.addEventListener('click', () => {
-                autorunEnabled = !autorunEnabled;
-                localStorage.setItem('autorunEnabled', autorunEnabled ? '1' : '0');
-                updateSettingButtonState(autorunEnabled);
-                const message = autorunEnabled ? 'Tự động chạy khi tải trang đã được bật' : 'Tự động chạy khi tải trang đã được tắt';
-                showNotification(message, 'info');
-            });
-
-            // Nút Autorun chính
-            const autorunButton = document.createElement('button');
-            autorunButton.textContent = 'Autorun';
-            autorunButton.classList.add('custom-script-menu-button', 'custom-script-auto-btn');
-
-            autorunButton.addEventListener('click', async () => {
-                this.autorunIsRunning = !this.autorunIsRunning;
-                
-                if (this.autorunIsRunning) {
-                    autorunButton.style.backgroundColor = '#ff0000ff';
-                    autorunButton.textContent = 'Đang chạy...';
-                    await automatic.start();
-                } else {
-                    autorunButton.style.backgroundColor = '';
-                    autorunButton.textContent = 'Autorun';
-                    await automatic.stop();
-                }
-            });
-
-            // Nút cấu hình
-            const autorunConfigButton = document.createElement('button');
-            autorunConfigButton.classList.add('custom-script-hoang-vuc-settings-btn');
-            autorunConfigButton.textContent = '⚙️';
-            autorunConfigButton.title = 'Cấu hình Autorun';
-
-            const configDiv = document.createElement('div');
-            configDiv.style.display = 'none';
-            configDiv.classList.add('custom-script-settings-panel');
-            configDiv.innerHTML = `
-            <div style="padding:8px;border-bottom:1px solid #444;margin-bottom:8px;">
-                <button id="reset-all-tasks-btn" 
-                    style="width:100%;padding:8px 12px;background:#ff5722;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:600;font-size:12px;">
-                    🔄 Reset Tất Cả Trạng Thái</button>
-            </div>
-            <div style="padding:10px;color:#d0d8f0;font-size:12px;line-height:1.6;">
-                <p style="margin:0 0 8px 0;font-weight:600;color:#f5c542;">💡 Cách bật/tắt chạy tự động:</p>
-                <p style="margin:0 0 4px 0;">• Bấm vào <strong>icon</strong> của nhiệm vụ trong danh sách</p>
-                <p style="margin:0 0 4px 0;">• <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#22d3a0;vertical-align:middle;"></span> Chấm xanh = Đang bật auto</p>
-                <p style="margin:0;">• <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#e74c3c;vertical-align:middle;"></span> Chấm đỏ = Đã tắt auto</p>
-            </div>
-            `;
-
-            autorunConfigButton.addEventListener('click', () => {
-                if (configDiv.style.display === 'none') {
-                    configDiv.style.display = 'flex';
-                } else {
-                    configDiv.style.display = 'none';
-                }
-            });
-
-            // Sự kiện nút Reset tất cả
-            setTimeout(() => {
-                const resetBtn = document.getElementById('reset-all-tasks-btn');
-                if (resetBtn) {
-                    resetBtn.addEventListener('click', async () => {
-                        const accountId = await getAccountId();
-                        if (!accountId) {
-                            showNotification('❌ Không lấy được Account ID!', 'error');
-                            return;
-                        }
-                        if (confirm('Bạn có chắc muốn reset tất cả trạng thái hoàn thành của các nhiệm vụ?')) {
-                            const count = taskTracker.resetAllTasks(accountId);
-                            showNotification(`✅ Đã reset ${count} nhiệm vụ!`, 'success');
-                            await loadHH3DProfile();
-                        }
-                    });
-                }
-            }, 100);
-
-            buttonRow.appendChild(autorunSettingsButton);
-            buttonRow.appendChild(autorunButton);
-            buttonRow.appendChild(autorunConfigButton);
-            container.appendChild(buttonRow);
-            container.appendChild(configDiv);
-        }
-
         // Hàm updateButtonState (DEPRECATED - no longer needed)
         async updateButtonState(taskName) {
             // No longer needed since UIMenuCreator is removed
@@ -9964,6 +9836,7 @@ class HoatDongNgay {
         async start() {
             console.log(`[Auto] Bắt đầu quá trình tự động cho tài khoản: ${this.accountId}`);
             this.isRunning = true;
+            window.isRunning = true;
             // Thực hiện các tác vụ ban đầu
 
             const autoDiemDanh = localStorage.getItem('autoDiemDanh') !== '0';
@@ -10030,6 +9903,8 @@ class HoatDongNgay {
             this.selfSchedule(_sh, _sm, 0); // Lên lịch tự động chạy theo cài đặt (mặc định 00:30 hàng ngày)
             // this.applyPromoCode();
         }
+
+
         async eventSchedule() {
             const now = Date.now();
             const nextEventTime = taskTracker.getNextTime(accountId, 'event');
@@ -10069,167 +9944,87 @@ class HoatDongNgay {
             //     this.eventSchedule();
             // }, waitTime + (this.delay || 0));
         }
+        /**Lên lịch tự chạy lại vào lúc 1 giờ */
+        async selfSchedule( h=1, m=0, s=0 ) {
+            if (!this.isRunning) return;
+            const now = Date.now();
+            const timeToRerun = new Date();
+            timeToRerun.setHours(h, m, s, 0);
+            if (timeToRerun.getTime() <= now) {
+                timeToRerun.setDate(timeToRerun.getDate() + 1);
+            }
+            const delay = timeToRerun.getTime() - now;
+            console.log(`[Auto] Lên lịch tự chạy lại vào lúc ${h} giờ ${m} phút ${s} giây. Thời gian chờ: ${delay}ms.`);
+            countdownTimer.set('restart', delay);
+            setTimeout(() => { this.stop(); }, delay);
+            setTimeout(() => { this.start(); }, delay+1000);
 
-
-        // Tự nhập mã thưởng
-        // async applyPromoCode() {
-
-        //     const promoCodeSaved = localStorage.getItem(`promo_code_${accountId}`) || "";
-        //     const PromoCodefileName = "/PromoCode.json";
-        //     const PromoCodeUrl = baseUrl + repoPath + branch + PromoCodefileName;
-
-
-        //     const fetchPromoCode = async () => {
-        //         try {
-        //             const response = await fetch(
-        //                 PromoCodeUrl
-        //             );
-        //             if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        //             const text = await response.text();
-        //             return text.trim();
-        //         } catch (error) {
-        //             console.error("[Auto] Lỗi khi lấy mã thưởng:", error);
-        //             return null;
-        //         }
-        //     };
-
-        //     const promoCodeFetched = await fetchPromoCode();
-        //     if (!promoCodeFetched || promoCodeSaved === promoCodeFetched) {
-        //         console.log("[Auto] Mã thưởng không thay đổi hoặc không lấy được");
-        //         return;
-        //     }
-
-        //     try {
-        //         // Lấy nonce từ trang linh thạch
-        //         const nonce = await getSecurityNonce( weburl + "linh-thach?t","redeem_linh_thach");
-
-        //         if (!nonce) {
-        //             console.error("[Auto] Không thể lấy nonce cho việc nhập mã thưởng");
-        //             return;
-        //         }
-
-        //         console.log(`[Auto] Đang nhập mã thưởng: ${promoCodeFetched}`);
-
-        //         const response = await fetch(ajaxUrl, {
-        //             credentials: "include",
-        //             headers: {
-        //                 "User-Agent":
-        //                     "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:143.0) Gecko/20100101 Firefox/143.0",
-        //                 "Accept": "*/*",
-        //                 "Accept-Language": "vi,en-US;q=0.5",
-        //                 "Content-Type": "application/x-www-form-urlencoded",
-        //                 "X-Requested-With": "XMLHttpRequest",
-        //                 "Sec-Fetch-Dest": "empty",
-        //                 "Sec-Fetch-Mode": "cors",
-        //                 "Sec-Fetch-Site": "same-origin",
-        //                 Priority: "u=0"
-        //             },
-        //             body: `action=redeem_linh_thach&code=${encodeURIComponent(promoCodeFetched)}&nonce=${nonce}&hold_timestamp=${Math.floor(
-        //                 Date.now() / 1000
-        //             )}`,
-        //             method: "POST",
-        //             mode: "cors"
-        //         });
-
-        //         const data = await response.json();
-
-        //         if (data.success) {
-        //             showNotification(data.data.message, "success");
-        //             localStorage.setItem(`promo_code_${accountId}`, promoCodeFetched);
-        //         } else if (data.data.message === "⚠️ Đạo hữu đã hấp thụ linh thạch này rồi!") {
-        //             localStorage.setItem(`promo_code_${accountId}`, promoCodeFetched);
-        //         } else {
-        //             showNotification(`❌ Lỗi nhập mã thưởng: ${data.message || data.data.message || JSON.stringify(data) || "Không xác định"}`, "error");
-        //         }
-        //     } catch (error) {
-        //         console.error("[Auto] Lỗi khi nhập mã thưởng:", error);
-        //         showNotification(`❌ Lỗi khi nhập mã thưởng: ${error.message}`, "error");
-        //     }
-        // }
-
-                    /**Lên lịch tự chạy lại vào lúc 1 giờ */
-    async selfSchedule( h=1, m=0, s=0 ) {
-        if (!this.isRunning) return;
-        const now = Date.now();
-        const timeToRerun = new Date();
-        timeToRerun.setHours(h, m, s, 0);
-        if (timeToRerun.getTime() <= now) {
-            timeToRerun.setDate(timeToRerun.getDate() + 1);
         }
-        const delay = timeToRerun.getTime() - now;
-        console.log(`[Auto] Lên lịch tự chạy lại vào lúc ${h} giờ ${m} phút ${s} giây. Thời gian chờ: ${delay}ms.`);
-        countdownTimer.set('restart', delay);
-        setTimeout(() => { this.stop(); }, delay);
-        setTimeout(() => { this.start(); }, delay+1000);
 
-    }
-
-    async doInitialTasks() {
-        if (!taskTracker.isTaskDone(this.accountId, 'diemdanh')) {
-            try {
-                const nonce = await getNonce()
-                if (!nonce) return
-                await doDailyCheckin(nonce);
-                await doClanDailyCheckin(nonce);
-                await vandap.doVanDap(nonce);
-            } catch (e) {
-                console.error("[Auto] Lỗi khi thực hiện Điểm danh, tế lễ, vấn đáp:", e);
+        async doInitialTasks() {
+            if (!taskTracker.isTaskDone(this.accountId, 'diemdanh')) {
+                try {
+                    const nonce = await getNonce()
+                    if (!nonce) return
+                    await doDailyCheckin(nonce);
+                    await doClanDailyCheckin(nonce);
+                    await vandap.doVanDap(nonce);
+                } catch (e) {
+                    console.error("[Auto] Lỗi khi thực hiện Điểm danh, tế lễ, vấn đáp:", e);
+                }
             }
         }
-    }
 
 
-    async luotkhactranvip() {
-        if (!taskTracker.isTaskDone(this.accountId, 'luotkhactranvip')) {
-            try {
-                const nonce = await getNonce()
-                if (!nonce) return
-                const result = await khactran.claimDailyTurns(this.accountId);
-                console.log("Kết quả claimDailyTurns:", result);
-            } catch (e) {
-                console.error("[Auto] lỗi nhận lượt khắc trận vip:", e);
+        async luotkhactranvip() {
+            if (!taskTracker.isTaskDone(this.accountId, 'luotkhactranvip')) {
+                try {
+                    const nonce = await getNonce()
+                    if (!nonce) return
+                    const result = await khactran.claimDailyTurns(this.accountId);
+                    console.log("Kết quả claimDailyTurns:", result);
+                } catch (e) {
+                    console.error("[Auto] lỗi nhận lượt khắc trận vip:", e);
+                }
             }
         }
-    }
 
-    async caunguyentienduyen() {
-        if (!taskTracker.isTaskDone(this.accountId, 'tienduyen')) {
-            try {
-                const nonce = await getNonce()
-                if (!nonce) return
-                const result = await docaunguyen(this.accountId);
-                console.log("Kết quả cầu nguyện:", result);
-            } catch (e) {
-                console.error("[Cầu nguyện Tiên duyên]:", e);
+        async caunguyentienduyen() {
+            if (!taskTracker.isTaskDone(this.accountId, 'tienduyen')) {
+                try {
+                    const nonce = await getNonce()
+                    if (!nonce) return
+                    const result = await docaunguyen(this.accountId);
+                    console.log("Kết quả cầu nguyện:", result);
+                } catch (e) {
+                    console.error("[Cầu nguyện Tiên duyên]:", e);
+                }
             }
         }
-    }
 
+        async scheduleTienDuyenCheck() {
+            const now = Date.now();
+            const lastCheckTienDuyen = taskTracker.getLastCheckTienDuyen(this.accountId);
+            let timeToNextCheck;
 
-    async scheduleTienDuyenCheck() {
-        const now = Date.now();
-        const lastCheckTienDuyen = taskTracker.getLastCheckTienDuyen(this.accountId);
-        let timeToNextCheck;
-
-        if (lastCheckTienDuyen === null || now - lastCheckTienDuyen >= this.CHECK_INTERVAL_TIEN_DUYEN) {
-            console.log("[Auto] Đã đến giờ làm Tiên Duyên. Đang thực hiện...");
-            try {
-                await tienduyen.doTienDuyen();
-            } catch (error) {
-                console.error("[Auto] Lỗi khi thực hiện Tiên Duyên:", error);
+            if (lastCheckTienDuyen === null || now - lastCheckTienDuyen >= this.CHECK_INTERVAL_TIEN_DUYEN) {
+                console.log("[Auto] Đã đến giờ làm Tiên Duyên. Đang thực hiện...");
+                try {
+                    await tienduyen.doTienDuyen();
+                } catch (error) {
+                    console.error("[Auto] Lỗi khi thực hiện Tiên Duyên:", error);
+                }
+                timeToNextCheck = this.CHECK_INTERVAL_TIEN_DUYEN;
+            } else {
+                timeToNextCheck = this.CHECK_INTERVAL_TIEN_DUYEN - (now - lastCheckTienDuyen);
+                console.log(`[Auto] Chưa đến giờ tiên duyên. Sẽ chờ ${timeToNextCheck}ms.`);
             }
-            timeToNextCheck = this.CHECK_INTERVAL_TIEN_DUYEN;
-        } else {
-            timeToNextCheck = this.CHECK_INTERVAL_TIEN_DUYEN - (now - lastCheckTienDuyen);
-            console.log(`[Auto] Chưa đến giờ tiên duyên. Sẽ chờ ${timeToNextCheck}ms.`);
+
+            // Hẹn giờ gọi lại chính nó sau khoảng thời gian đã tính
+            if (this.tienduyenTimeout) clearTimeout(this.tienduyenTimeout);
+            countdownTimer.set('tienduyen', timeToNextCheck);
+            this.tienduyenTimeout = setTimeout(() => this.scheduleTienDuyenCheck(), timeToNextCheck);
         }
-
-        // Hẹn giờ gọi lại chính nó sau khoảng thời gian đã tính
-        if (this.tienduyenTimeout) clearTimeout(this.tienduyenTimeout);
-        countdownTimer.set('tienduyen', timeToNextCheck);
-        this.tienduyenTimeout = setTimeout(() => this.scheduleTienDuyenCheck(), timeToNextCheck);
-    }
-
 
         /**
         * Tạo lịch trình cho một nhiệm vụ cụ thể.
@@ -10340,7 +10135,6 @@ class HoatDongNgay {
                 this.luanvoTimeout = setTimeout(() => this.scheduleLuanVo(), delay);
             }
         }
-
 
         async scheduleDoThach() {
             const status = taskTracker.getTaskStatus(accountId, 'dothach');
@@ -10465,7 +10259,8 @@ class HoatDongNgay {
         }
 
         stop() {
-            if (!this.isRunning) return;
+            if (!this.isRunning || !window.isRunning) return;
+            window.isRunning = false;
             for (const taskName in this.timeoutIds) {
                 if (this.timeoutIds[taskName]) {
                     clearTimeout(this.timeoutIds[taskName]);
@@ -10485,7 +10280,10 @@ class HoatDongNgay {
                 clearTimeout(this.hoatdongngayTimeout);
                 console.log(`Đã dừng quá trình tự động hoạt động ngày`);
             }
-            countdownTimer.clear();
+            // Xóa tất cả countdown trừ 'restart' (vẫn đang chờ selfSchedule)
+            Object.keys(countdownTimer.tasks).forEach(name => {
+                if (name !== 'restart') countdownTimer.remove(name);
+            });
             createUI.clearStatusBar();
         }
 
@@ -11261,6 +11059,7 @@ class HoatDongNgay {
 
         const automatic = new AutomationManager();
         window.hh3dAutomatic = automatic; // Save to window for access from UI
+        window.isRunning = null; // null = chưa chạy, true = đang chạy, false = đã dừng
 
         // Đợi 1000ms để UI ổn định
         await new Promise(resolve => setTimeout(resolve, 1000));
