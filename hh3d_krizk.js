@@ -6919,7 +6919,9 @@ function extractRedeemNonce(html) {
                 return `
                     <div style="padding: 8px 0; border-bottom: 1px dashed #333; display: flex; justify-content: space-between; align-items: center; gap: 10px;">
                         <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
-                            <img src="${esc(avatarUrl || u.avatar)}" alt="avatar" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1px solid #555; flex-shrink: 0;">
+                            <a href="/profile/${id}" target="_blank" style="flex-shrink:0;display:block">
+                                <img src="${esc(avatarUrl || u.avatar)}" alt="avatar" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1px solid #555; cursor:pointer;">
+                            </a>
                             <div style="display: flex; flex-direction: column; min-width: 0; flex: 1;">
                                 <div style="color: #ff6b6b; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${esc(u.name)} (${esc(u.id)})</div>
                                 <div style="font-size: 11px; color: #777; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${esc(u.tongMonName || 'Vô phái')} - ${esc(u.role || 'Thành viên')}</div>
@@ -7093,7 +7095,9 @@ function extractRedeemNonce(html) {
                     return `
                         <div style="padding: 6px 0; border-bottom: 1px dashed #333; display: flex; justify-content: space-between; align-items: center; gap: 10px;">
                             <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
-                                <img src="${avatarUrl || u.a || u.avatar}" alt="avatar" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1px solid #555; flex-shrink: 0;">
+                                <a href="/profile/${id}" target="_blank" style="flex-shrink:0;display:block">
+                                    <img src="${avatarUrl || u.a || u.avatar}" alt="avatar" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1px solid #555; cursor:pointer;">
+                                </a>
                                 <div style="display: flex; flex-direction: column; min-width: 0; flex: 1;">
                                     <div style="color: ${nameColor}; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${esc(u.name)} ${allyLabel ? `<span style="font-size: 10px;">${allyLabel}</span>` : ''} (${esc(u.id)})</div>
                                     <div style="font-size: 11px; color: #777; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${esc(u.tongMonName || 'Vô phái')} - ${esc(u.role || 'Thành viên')}</div>
