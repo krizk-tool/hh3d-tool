@@ -6385,6 +6385,7 @@ function extractRedeemNonce(html) {
                     const u = users[i];
                     const avatarUrl = u.avatar || await this.decodeAvatar(u.avatar, accountId);
                     const realId = (await this.getIdfromAvatar(avatarUrl)) || u.id;
+                    console.log(`[Khoáng mạch] User ${i}: avatar=${u.avatar}, decodedAvatar=${avatarUrl}, realId=${realId}, displayedId=${u.id}`);
                     if (realId && realId.toString() === accountId.toString()) {
                         myIndex = i;
                         break;
