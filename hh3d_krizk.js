@@ -5934,6 +5934,7 @@ function extractRedeemNonce(html) {
 
                     if (cache.data && cache.data.length > 0 && cacheHasAllTypes) {
                         console.log("[HH3D] 🗄️ Dùng dữ liệu mỏ từ cache");
+                        showNotification("🗄️ Dữ liệu mỏ đã được tải từ cache.", "info");
                         return {
                             optionsHtml: cache.optionsHtml,
                             minesData: cache.data
