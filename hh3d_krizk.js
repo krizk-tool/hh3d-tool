@@ -468,9 +468,6 @@
 
     // Lấy ID tài khoản
     async function getAccountId() {
-        // Kiểm tra cache trong localStorage
-        const cached = localStorage.getItem('hh3d_account_id');
-        if (cached) return cached;
         
         const html = document.documentElement.innerHTML;
         const regexList = [
