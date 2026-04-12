@@ -2564,10 +2564,11 @@ function bindSettingsEventsForTask(taskId) {
                 if (!logList) return;
                 logList.innerHTML = '';
                 const entries = (window.hh3dLogBuffer || []).filter(e => filter === 'all' || e.type === filter);
-                // Newest first
-                for (let i = entries.length - 1; i >= 0; i--) {
+                // Oldest first → newest at bottom
+                for (let i = 0; i < entries.length; i++) {
                     _hh3dRenderLogLine(logList, entries[i], false);
                 }
+                logList.scrollTop = logList.scrollHeight;
             };
 
             renderLogs('all');
@@ -6100,7 +6101,8 @@ function extractRedeemNonce(html) {
                         showNotification('Lỗi nhận thưởng khi bị đánh ra khỏi mỏ khoáng', 'warn');
                     }
                 } else {
-                    showNotification(msg, 'error');
+                    // showNotification(msg, 'error');
+                    console.log(`${this.logPrefix} ❌ ${msg}`);
                 }
                 return false;
 
@@ -6382,7 +6384,7 @@ function extractRedeemNonce(html) {
                     const u = users[i];
                     const avatarUrl = u.avatar || await this.decodeAvatar(u.avatar, accountId);
                     const realId = (await this.getIdfromAvatar(avatarUrl)) || u.id;
-                    console.log(`[Khoáng mạch] User ${i}: avatar=${u.avatar}, decodedAvatar=${avatarUrl}, realId=${realId}, accountId=${accountId}`);
+                    // console.log(`[Khoáng mạch] User ${i}: id = ${u.id}, avatar=${u.avatar}, decodedAvatar=${avatarUrl}, realId=${realId}, accountId=${accountId}`);
                     if (realId && realId.toString() === accountId.toString()) {
                         myIndex = i;
                         break;
@@ -7807,7 +7809,10 @@ class HoatDongNgay {
             if (window.hh3dLogBuffer.length > HH3D_LOG_BUFFER_MAX) window.hh3dLogBuffer.shift();
             // Nếu tab Log đang mở thì cập nhật live
             const logList = document.getElementById('hh3d-log-list');
-            if (logList) _hh3dRenderLogLine(logList, window.hh3dLogBuffer[window.hh3dLogBuffer.length - 1], true);
+            if (logList) {
+                _hh3dRenderLogLine(logList, window.hh3dLogBuffer[window.hh3dLogBuffer.length - 1], false);
+                logList.scrollTop = logList.scrollHeight;
+            }
         }
 
         function _hh3dRenderLogLine(container, entry, prepend = false) {
