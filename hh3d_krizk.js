@@ -6102,7 +6102,10 @@ function extractRedeemNonce(html) {
                     } else {
                         showNotification('Lỗi nhận thưởng khi bị đánh ra khỏi mỏ khoáng', 'warn');
                     }
+                } else {
+                    showNotification(msg, 'error');
                 }
+                return false;
 
             } catch (e) {
                 console.error(`${this.logPrefix} ❌ Lỗi mạng (vào mỏ):`, e);
@@ -6358,6 +6361,7 @@ function extractRedeemNonce(html) {
                     showNotification('Mỏ đã đầy. Không vào được.', 'warn');
                     return true;
                 } else {
+                    showNotification(`Đang vào mỏ ${targetMine.name}...`, 'info');
                     await this.enterMine(targetMine.id);
                     return true;
                 }
