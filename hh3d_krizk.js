@@ -6379,7 +6379,7 @@ function extractRedeemNonce(html) {
                 let myIndex = -1;
                 for (let i = 0; i < users.length; i++) {
                     const u = users[i];
-                    const avatarUrl = await this.decodeAvatar(u.avatar, accountId);
+                    const avatarUrl = u.avatar || await this.decodeAvatar(u.avatar, accountId);
                     const realId = (await this.getIdfromAvatar(avatarUrl)) || u.id;
                     if (realId && realId.toString() === accountId.toString()) {
                         myIndex = i;
