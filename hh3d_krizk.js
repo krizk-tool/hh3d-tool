@@ -6374,10 +6374,18 @@ function extractRedeemNonce(html) {
                     showNotification('Mỏ trống trơn???', 'warn');
                     throw new Error('Mỏ trống trơn???');
                 }
-
-
-                // Kiểm tra vị trí trong mỏ
-                let myIndex = users.findIndex(u => u.id.toString() === accountId.toString());
+                                
+                // Kiểm tra vị trí trong mỏ (u.id bị mã hóa, phải lấy id thực từ avatar)
+                let myIndex = -1;
+                for (let i = 0; i < users.length; i++) {
+                    const u = users[i];
+                    const avatarUrl = await this.decodeAvatar(u.avatar, accountId);
+                    const realId = (await this.getIdfromAvatar(avatarUrl)) || u.id;
+                    if (realId && realId.toString() === accountId.toString()) {
+                        myIndex = i;
+                        break;
+                    }
+                }
                 if (myIndex === -1) {
                     console.log(`[Khoáng mạch] Kiểm tra vị trí. Bạn chưa vào mỏ ${targetMine.name}.`);
                     showNotification(`Bạn chưa vào mỏ ${targetMine.name}.`, 'warn');
