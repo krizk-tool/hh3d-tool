@@ -6371,6 +6371,7 @@ function extractRedeemNonce(html) {
                 const users = mineInfo.users || [];
                 if (users.length === 0) {
                     console.log(`[Khoáng mạch] Mỏ ${targetMine.id} trống.`);
+                    showNotification('Mỏ trống trơn???', 'warn');
                     throw new Error('Mỏ trống trơn???');
                 }
 
@@ -6379,6 +6380,7 @@ function extractRedeemNonce(html) {
                 let myIndex = users.findIndex(u => u.id.toString() === accountId.toString());
                 if (myIndex === -1) {
                     console.log(`[Khoáng mạch] Kiểm tra vị trí. Bạn chưa vào mỏ ${targetMine.name}.`);
+                    showNotification(`Bạn chưa vào mỏ ${targetMine.name}.`, 'warn');
                     return true;
                 }
 
