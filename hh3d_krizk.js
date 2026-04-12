@@ -1913,6 +1913,14 @@ function createUnifiedSettingsModal() {
         tab.onclick = () => switchSettingsTab(quest.taskId);
         tabsContainer.appendChild(tab);
     });
+
+    // Tab Log (luôn ở cuối)
+    const logTab = document.createElement('button');
+    logTab.className = 'settings-tab';
+    logTab.setAttribute('data-task', 'log');
+    logTab.innerHTML = '<i class="fas fa-list-alt"></i> Log';
+    logTab.onclick = () => switchSettingsTab('log');
+    tabsContainer.appendChild(logTab);
     
     // Content container
     const contentContainer = document.createElement('div');
@@ -2186,6 +2194,27 @@ function getSettingsContentForTask(taskId) {
 
         default:
             return `<div class="settings-section"><p>Không có cài đặt cho nhiệm vụ này</p></div>`;
+
+        case 'log':
+            return `
+                <div class="settings-section" style="padding:8px">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                        <h3 style="margin:0">📋 Lịch Sử Log</h3>
+                        <div style="display:flex;gap:6px">
+                            <select id="hh3d-log-filter" style="font-size:11px;padding:2px 6px;border-radius:4px;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.07);color:#d0d8f0">
+                                <option value="all">Tất cả</option>
+                                <option value="success">✅ Success</option>
+                                <option value="warn">⚠️ Warn</option>
+                                <option value="error">❌ Error</option>
+                                <option value="info">ℹ️ Info</option>
+                                <option value="debug">🔍 Debug</option>
+                            </select>
+                            <button id="hh3d-log-clear" style="font-size:11px;padding:2px 8px;border-radius:4px;border:1px solid rgba(239,68,68,0.4);background:rgba(239,68,68,0.1);color:#f87171;cursor:pointer">🗑 Xóa</button>
+                        </div>
+                    </div>
+                    <div id="hh3d-log-list" style="height:380px;overflow-y:auto;background:rgba(0,0,0,0.3);border-radius:4px;border:1px solid rgba(255,255,255,0.08)"></div>
+                </div>
+            `;
     }
 }
 
@@ -2528,6 +2557,32 @@ function bindSettingsEventsForTask(taskId) {
         case 'general':
             // No special events
             break;
+
+        case 'log': {
+            const logList = document.getElementById('hh3d-log-list');
+            const logFilter = document.getElementById('hh3d-log-filter');
+            const logClear = document.getElementById('hh3d-log-clear');
+
+            const renderLogs = (filter = 'all') => {
+                if (!logList) return;
+                logList.innerHTML = '';
+                const entries = (window.hh3dLogBuffer || []).filter(e => filter === 'all' || e.type === filter);
+                // Newest first
+                for (let i = entries.length - 1; i >= 0; i--) {
+                    _hh3dRenderLogLine(logList, entries[i], false);
+                }
+            };
+
+            renderLogs('all');
+
+            if (logFilter) logFilter.addEventListener('change', () => renderLogs(logFilter.value));
+            if (logClear) logClear.addEventListener('click', () => {
+                window.hh3dLogBuffer = [];
+                renderLogs('all');
+            });
+            break;
+        }
+
         default:
             break;
     }
@@ -7728,7 +7783,41 @@ class HoatDongNgay {
     })();
 
 
+        // ===============================================
+        // LOG BUFFER (dùng cho tab Log trong settings)
+        // ===============================================
+        const HH3D_LOG_BUFFER_MAX = 200;
+        window.hh3dLogBuffer = window.hh3dLogBuffer || [];
+
+        function hh3dPushLog(message, type = 'info') {
+            const plain = String(message).replace(/<[^>]*>/g, '');
+            window.hh3dLogBuffer.push({ time: Date.now(), message: plain, type });
+            if (window.hh3dLogBuffer.length > HH3D_LOG_BUFFER_MAX) window.hh3dLogBuffer.shift();
+            // Nếu tab Log đang mở thì cập nhật live
+            const logList = document.getElementById('hh3d-log-list');
+            if (logList) _hh3dRenderLogLine(logList, window.hh3dLogBuffer[window.hh3dLogBuffer.length - 1], true);
+        }
+
+        function _hh3dRenderLogLine(container, entry, prepend = false) {
+            const colors = { success: '#4caf50', warn: '#ff9800', error: '#f44336', info: '#63b3ed', debug: '#9ca3af' };
+            const timeStr = new Date(entry.time).toLocaleTimeString('vi-VN');
+            const div = document.createElement('div');
+            div.style.cssText = `padding:3px 6px;border-bottom:1px solid rgba(255,255,255,0.05);font-size:11px;font-family:monospace;color:${colors[entry.type] || '#ccc'};word-break:break-all`;
+            div.textContent = `[${timeStr}] ${entry.message}`;
+            if (prepend) container.insertBefore(div, container.firstChild);
+            else container.appendChild(div);
+        }
+
+        // Intercept console.*
+        (function() {
+            const _orig = { log: console.log, warn: console.warn, error: console.error };
+            console.log = function(...args) { _orig.log.apply(console, args); hh3dPushLog(args.join(' '), 'debug'); };
+            console.warn = function(...args) { _orig.warn.apply(console, args); hh3dPushLog(args.join(' '), 'warn'); };
+            console.error = function(...args) { _orig.error.apply(console, args); hh3dPushLog(args.join(' '), 'error'); };
+        })();
+
         function showNotification(message, type = 'success', duration = 3000) {
+            hh3dPushLog(message, type);
 
             // --- Bắt đầu phần chèn CSS tự động ---
             if (!isCssInjected) {
