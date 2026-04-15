@@ -1,7 +1,7 @@
     // ==UserScript==
     // @name          HH3D Auto - Edited by Krizk
     // @namespace     hh3d-tool-krizk
-    // @version       5.9.2
+    // @version       5.9.3
     // @description   Auto  HH3D
     // @author        Cre: [Unknown] - Edited by Krizk
     // @include       *://hoathinh3d.co*/*
@@ -4384,14 +4384,21 @@ class BiCanh {
                     "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
                     "X-Requested-With": "XMLHttpRequest",
                 };
+                this.attackToken = null;
             }
             /**
             * Lấy nguyên tố của người dùng từ trang Hoang Vực.
             */
+            extractAttackToken(html) {
+                const m = html.match(/"attack_token"\s*:\s*"([a-f0-9]+)"/i)
+                    || html.match(/var\s+boss_attack_token\s*=\s*['"]([a-f0-9]+)['"]/i);
+                return m ? m[1] : null;
+            }
             async getMyElement() {
                 const url = weburl + 'hoang-vuc?t';
                 const response = await fetch(url);
                 const text = await response.text();
+                this.attackToken = this.extractAttackToken(text);
                 // const regex = /<img id="user-nguhanh-image".*?src=".*?ngu-hanh-(.*?)\.gif"/;
                 const regex = /(?:class="user-element"[^>]*>.*?|id="user-nguhanh-image"[^>]*data-src=")[^"']*ngu-hanh-(moc|thuy|hoa|tho|kim)\.gif/i;
                 const match = text.match(regex);
@@ -4478,10 +4485,11 @@ class BiCanh {
                 const currentTime = Date.now();
                 const securityToken = await getSecurityToken(weburl + 'hoang-vuc?t');
                 const payload = new URLSearchParams();
-                payload.append('action', 'attack_boss');
+                payload.append('action', `${(typeof hh3dData !== 'undefined' && hh3dData.act) ? hh3dData.act.bossAttack : 'attack_boss'}`);
                 payload.append('boss_id', bossId);
                 payload.append('security_token', securityToken);
                 payload.append('nonce', nonce);
+                payload.append('attack_token', this.attackToken || '');
                 payload.append('request_id', `req_${Math.random().toString(36).substring(2, 8)}${currentTime}`);
 
                 console.log(`${this.logPrefix} ⚔️ Đang tấn công boss...`);
