@@ -1,7 +1,7 @@
     // ==UserScript==
     // @name          HH3D Auto - Edited by Krizk
     // @namespace     hh3d-tool-krizk
-    // @version       5.9.3
+    // @version       5.9.4
     // @description   Auto  HH3D
     // @author        Cre: [Unknown] - Edited by Krizk
     // @include       *://hoathinh3d.co*/*
@@ -270,6 +270,8 @@
                 htmlContent = document.documentElement.outerHTML;
             }
             hData = parseHh3dData(htmlContent); // Cập nhật hh3dData từ html mới lấy được
+            const m = htmlContent.match(/var\s+boss_attack_token\s*=\s*['"]([a-f0-9]+)['"]/i);
+            hData.attackToken = m ? m[1] : null;
 
             // 2. Quét Regex lấy Token mới
             const regex = /"securityToken"\s*:\s*"([^"]+)"/;
@@ -333,7 +335,7 @@
         }
     }
 
-//Lấy Nonce
+    //Lấy Nonce
     async function getNonce() {       
         if (typeof restNonce !== 'undefined' && restNonce) {
             return restNonce;
@@ -951,12 +953,18 @@ class TaskTracker {
             hasExtraButton: true,
             extraButtonText: 'VIP',
             extraButtonTitle: 'Nhận lượt Khắc Trận VIP',
+            hasExtra2Button: true,
+            extra2ButtonText: 'Triệu Hồi',
+            extra2ButtonTitle: 'Triệu hồi Pháp Tướng',
             async action() {
                 await khactran.autoActivateSeal();
             },
             async extraAction() {
                 const accountId = await getAccountId();
                 await khactran.claimDailyTurns(accountId);
+            },
+            async extra2Action() {
+                await khactran.summoningPhapTuong();
             }
         },
         {
@@ -1520,7 +1528,7 @@ function attachQuestButtonHandlers() {
     });
     
     // Gắn sự kiện cho các nút extra (như bonus)
-    document.querySelectorAll('.quest-extra-btn').forEach(button => {
+    document.querySelectorAll('.quest-extra-btn:not(.quest-extra2-btn)').forEach(button => {
         const taskId = button.getAttribute('data-task');
         const questConfig = QUEST_CONFIG.find(q => q.taskId === taskId);
         
@@ -4383,32 +4391,35 @@ class BiCanh {
                 this.headers = {
                     "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
                     "X-Requested-With": "XMLHttpRequest",
+                    "referer": weburl + 'hoang-vuc?t=' + Math.random().toString(36).substring(2, 8),
                 };
-                this.attackToken = null;
+                // this.attackToken = null;
             }
             /**
             * Lấy nguyên tố của người dùng từ trang Hoang Vực.
             */
             extractAttackToken(html) {
-                const m = html.match(/"attack_token"\s*:\s*"([a-f0-9]+)"/i)
-                    || html.match(/var\s+boss_attack_token\s*=\s*['"]([a-f0-9]+)['"]/i);
+                const m = html.match(/var\s+boss_attack_token\s*=\s*['"]([a-f0-9]+)['"]/i);
                 return m ? m[1] : null;
             }
             async getMyElement() {
-                const url = weburl + 'hoang-vuc?t';
+                const url = weburl + 'hoang-vuc?t='+ Math.random().toString(36).substring(2, 8);
                 const response = await fetch(url);
                 const text = await response.text();
-                this.attackToken = this.extractAttackToken(text);
+                
+                const m = text.match(/var\s+boss_attack_token\s*=\s*['"]([a-f0-9]+)['"]/i);
+                this.attackToken = m ? m[1] : null;
+                console.log(`${this.logPrefix} 🔑 Lấy attack token: ${this.attackToken}`);
                 // const regex = /<img id="user-nguhanh-image".*?src=".*?ngu-hanh-(.*?)\.gif"/;
                 const regex = /(?:class="user-element"[^>]*>.*?|id="user-nguhanh-image"[^>]*data-src=")[^"']*ngu-hanh-(moc|thuy|hoa|tho|kim)\.gif/i;
                 const match = text.match(regex);
                 if (match && match[1]) {
                     const element = match[1];
                     console.log(`${this.logPrefix} ✅ Đã lấy được nguyên tố của bạn: ${element}`);
-                    return element;
+                    return { element, attackToken: this.attackToken };
                 } else {
                     console.error(`${this.logPrefix} ❌ Không tìm thấy nguyên tố của người dùng.`);
-                    return null;
+                    return { element: null, attackToken: this.attackToken};
                 }
             }
 
@@ -4483,16 +4494,18 @@ class BiCanh {
             */
             async attackHoangVucBoss(bossId, nonce) {
                 const currentTime = Date.now();
-                const securityToken = await getSecurityToken(weburl + 'hoang-vuc?t');
+                const securityToken = await getSecurityToken(weburl + 'hoang-vuc?t=' + Math.random().toString(36).substring(2, 8));
+                const requestId = `req_${Math.random().toString(36).substring(2, 8)}_${currentTime}`;
                 const payload = new URLSearchParams();
-                payload.append('action', `${(typeof hh3dData !== 'undefined' && hh3dData.act) ? hh3dData.act.bossAttack : 'attack_boss'}`);
+                payload.append('action', `${(typeof hData !== 'undefined' && hData.act) ? hData.act.bossAttack : 'attack_boss'}`);
                 payload.append('boss_id', bossId);
                 payload.append('security_token', securityToken);
                 payload.append('nonce', nonce);
-                payload.append('attack_token', this.attackToken || '');
+                payload.append('attack_token', hData.attackToken || '');
                 payload.append('request_id', `req_${Math.random().toString(36).substring(2, 8)}${currentTime}`);
-
-                console.log(`${this.logPrefix} ⚔️ Đang tấn công boss...`);
+                console.log(`${this.logPrefix} 🛡️ Chuẩn bị tấn công boss ${bossId} với payload:`, Object.fromEntries(payload.entries()));
+                // console.log(`${this.logPrefix} ⚔️ Đang tấn công boss...`);
+                // console.log(`${this.logPrefix} 🔐 Attack Token: ${hData.attackToken}`);
                 const response = await fetch(this.ajaxUrl, {
                     method: 'POST',
                     headers: this.headers,
@@ -4500,6 +4513,7 @@ class BiCanh {
                     credentials: 'include'
                 });
                 const data = await response.json();
+                console.log(`${this.logPrefix} 📦 Response attackHoangVucBoss:`, data);
                 if (data.success) {
                     const message = data.data.message || data.message || JSON.stringify(data) || 'Tấn công thành công!';
                     console.log(`${this.logPrefix} ✅ ${message}`);
@@ -4605,12 +4619,11 @@ class BiCanh {
                         const nonceMatch = html.match(/var ajax_boss_nonce = '([a-f0-9]+)'/);
                         const nonce = nonceMatch ? nonceMatch[1] : null;
 
-                        console.log(`${logPrefix} ✅ Lấy dữ liệu thành công.`);
-                        return { remainingAttacks, nonce };
+                        return {  remainingAttacks, nonce };
 
                     } catch (e) {
                         console.error(`${logPrefix} ❌ Lỗi khi tải trang hoặc trích xuất dữ liệu:`, e);
-                        return { remainingAttacks: null, nonce: null };
+                        return { attackToken: null, remainingAttacks: null, nonce: null };
                     }
                 }
 
@@ -4653,7 +4666,7 @@ class BiCanh {
                             return true;
                         }
 
-                        let myElement = await this.getMyElement();
+                        let { element: myElement, attackToken } = await this.getMyElement();
                         const bossElement = boss.element;
 
                         // Lấy danh sách các nguyên tố phù hợp
@@ -5199,6 +5212,36 @@ class KhacTranVan {
             return await response.json(); // chỉ trả về data
         } catch (err) {
             console.error(this.logPrefix, "❌ Lỗi khi khắc trận văn:", err);
+            return null;
+        }
+    }
+
+    async summoningPhapTuong() {
+        if (!this.config) await this.getConfig();
+        if (!this.config?.nonce || !this.config?.token) {
+            showNotification("❌ Thiếu nonce/token, không thể triệu hồi pháp tướng", "error");
+            return null;
+        }
+        try {           
+            const response = await fetch(this.weburl + "/wp-json/phap-tuong/v1/complete-summoning", {
+                method: "POST",
+                credentials: "include",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-WP-Nonce": this.config.nonce,
+                    "x-pt-token": this.config.token
+                }           
+            });
+            const data = await response.json();
+            if (data.success) {
+                showNotification(`✅ Triệu hồi pháp tướng thành công: ${data.message}`, "success");
+            } else {
+                showNotification(`⚠️ Triệu hồi pháp tướng thất bại: ${data.message}`, "warn");
+            }
+            return data;
+        } catch (err) {
+            console.error(this.logPrefix, "❌ Lỗi khi triệu hồi pháp tướng:", err);
+            showNotification("❌ Lỗi khi triệu hồi pháp tướng", "error");
             return null;
         }
     }
@@ -6101,7 +6144,7 @@ function extractRedeemNonce(html) {
                         showNotification('Lỗi nonce (claim_reward_km).', 'error');
                         return false;
                     }
-                    this.securityToken = await getSecurityToken(this.khoangMachUrl);
+                    this.securityToken = hData.securityToken || await getSecurityToken(this.khoangMachUrl);
                     const reward = await post({ action: hData && hData.act ? hData.act.kmReward :'claim_reward_km', security_token: this.securityToken, security: nonce });
                     if (reward.success) {
                         showNotification(`Nhận thưởng <b>${reward.data.total_tuvi} tu vi và ${reward.data.total_tinh_thach} tinh thạch</b> tại khoáng mạch ${reward.data.mine_name}`, 'info');
@@ -6263,7 +6306,7 @@ function extractRedeemNonce(html) {
             } else {
                 const nonce = await this.#getNonce('claim_mycred_reward');
                 if (!nonce) { showNotification('Lỗi nonce (claim_reward).', 'error'); return false; }
-                this.securityToken = await getSecurityToken(this.khoangMachUrl);
+                this.securityToken = hData.securityToken|| await getSecurityToken(this.khoangMachUrl);
                 const payload = new URLSearchParams({ action: hData && hData.act ? hData.act.kmClaim :'claim_mycred_reward', mine_id: mineId, security_token: this.securityToken, security: nonce });
                 try {
                     const r = await fetch(this.ajaxUrl, { method: 'POST', headers: this.headers, body: payload, credentials: 'include' });
@@ -7561,6 +7604,7 @@ class HoatDongNgay {
         await new Promise(r => setTimeout(r, 5000)); // Delay 5s giữa 2 rương
         const chest2 = await this.getDailyChest("stage2");
         const spin = await this.spinLottery();
+        
         const phaptuong = await khactran.autoActivateSeal();
 
         if (chest1 && chest2 && spin) {
@@ -7569,7 +7613,6 @@ class HoatDongNgay {
         }
     }
 }
-
 
 // ===============================================
     // EVENT ĐUA TOP
@@ -11185,7 +11228,3 @@ class HoatDongNgay {
             hienTuviKM.startUp();
         }
 })();
-
-
-
-
