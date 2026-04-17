@@ -1288,7 +1288,7 @@ async function loadHH3DProfile() {
 
     // Tiến độ - Cập nhật dữ liệu vào skeleton UI
     try {
-        const html = await (await fetch("/nhiem-vu-hang-ngay", { credentials: "include" })).text();
+        const html = await (await fetch("/nhiem-vu-hang-ngay?t=" + Date.now(), { credentials: "include" })).text();
         const doc = new DOMParser().parseFromString(html, "text/html");
         
         // Parse tiến độ
@@ -1338,11 +1338,19 @@ async function loadHH3DProfile() {
         // Parse danh sách nhiệm vụ chi tiết từ server và cập nhật trạng thái
         const quests = [...doc.querySelectorAll(".nv-quest")];
         
+        // Mapping tên UI -> tên server (nhiem-vu-hang-ngay) khi khác nhau
+        const questNameAliases = {
+            'Tiên Duyên': ['Hỷ Sự Đường'],
+        };
+        
         // Gom progress theo từng quest item trong UI
         const questItems = document.querySelectorAll('.nv-quest-item');
         questItems.forEach(item => {
-            const itemName = item.querySelector('.nv-quest-name')?.textContent.trim() || "";
+            const nameEl = item.querySelector('.nv-quest-name');
+            const progressContent = item.querySelector('.quest-progress')?.textContent || '';
+            const itemName = ((nameEl?.textContent || '').replace(progressContent, '')).trim();
             const itemParts = itemName.split(',').map(s => s.trim());
+            const aliases = questNameAliases[itemName] || [];
             const progressParts = [];
             let allDone = true;
             let anyMatch = false;
@@ -1352,7 +1360,7 @@ async function loadHH3DProfile() {
                 const name = quest.querySelector(".nv-qb h4")?.textContent.trim() || "";
                 const progress = quest.querySelector(".nv-prog-txt")?.textContent.trim() || "";
                 
-                if (itemName.includes(name) || name.includes(itemName.split('<')[0].trim()) || itemParts.some(part => name.includes(part))) {
+                if (itemName.includes(name) || name.includes(itemName.split('<')[0].trim()) || itemParts.some(part => name.includes(part)) || aliases.some(alias => name.includes(alias) || alias.includes(name))) {
                     anyMatch = true;
                     if (!isDone) allDone = false;
                     if (progress) progressParts.push(progress);
@@ -1423,7 +1431,6 @@ async function updateAllQuestButtons() {
             case 'thiluyen':
             case 'phucloi':
             case 'hoangvuc':
-            // case 'luanvo':
             case 'khoangmach':
             case 'luotkhactranvip':
             case 'tienduyen':
@@ -7612,6 +7619,7 @@ class HoatDongNgay {
             taskTracker.markTaskDone(accountId, "hoatdongngay");            
             showNotification( "✅ Hoàn thành hoạt động ngày + vòng quay phúc vận","success");
         }
+        loadHH3DProfile().catch(() => {}); // Cập nhật lại thông tin sau khi hoàn thành hoạt động ngày
     }
 }
 
@@ -10202,7 +10210,8 @@ class HoatDongNgay {
                 isTaskDone = taskTracker.isTaskDone(this.accountId, taskName);
             }
             // Kiểm tra và dừng lịch trình nếu nhiệm vụ đã hoàn thành
-            if (isTaskDone) {
+            if (isTaskDone) {                
+                loadHH3DProfile().catch(() => {});
                 return;
             }
 
@@ -10216,7 +10225,8 @@ class HoatDongNgay {
                     // Cho phép taskAction trả về delay thực tế (ms hoặc chuỗi thời gian)
                     let result = await taskAction();
                     // Cập nhật trạng thái UI sau khi task chạy xong
-                    updateAllQuestButtons().catch(() => {});
+                    // updateAllQuestButtons().catch(() => {});
+                    loadHH3DProfile().catch(() => {});
                     // Nếu trả về số, dùng làm delay
                     if (typeof result === 'number' && !isNaN(result) && result > 0) {
                         timeToNextCheck = result;
@@ -10398,8 +10408,6 @@ class HoatDongNgay {
                 console.log("[Auto] Điều kiện đã đủ, đang thực hiện Hoạt Động Ngày...");
                 try {
                     await hoatdongngay.doHoatDongNgay();
-                    // Cập nhật trạng thái UI sau khi task chạy xong
-                    updateAllQuestButtons().catch(() => {});
                     if (this.hoatdongngayTimeout) clearTimeout(this.hoatdongngayTimeout);
                     if (taskTracker.isTaskDone(this.accountId, 'hoatdongngay') && this.hoatdongngayTimeout) {
                         return;
@@ -11230,7 +11238,3 @@ class HoatDongNgay {
             hienTuviKM.startUp();
         }
 })();
-
-
-
-
