@@ -148,6 +148,8 @@
                 console.log('❌ Lỗi khi decode data:', e.message);
               }
             }
+            const m = html.match(/var\s+boss_attack_token\s*=\s*['"]([a-f0-9]+)['"]/i);
+            hh3dData.attackToken = m ? m[1] : null; // dành cho hoang vực
             
             return hh3dData;
             
@@ -269,9 +271,7 @@
             } else {
                 htmlContent = document.documentElement.outerHTML;
             }
-            hData = parseHh3dData(htmlContent); // Cập nhật hh3dData từ html mới lấy được
-            const m = htmlContent.match(/var\s+boss_attack_token\s*=\s*['"]([a-f0-9]+)['"]/i);
-            hData.attackToken = m ? m[1] : null;
+            hData = parseHh3dData(htmlContent); // Cập nhật hh3dData từ html mới lấy được            
 
             // 2. Quét Regex lấy Token mới
             const regex = /"securityToken"\s*:\s*"([^"]+)"/;
@@ -4504,8 +4504,7 @@ class BiCanh {
                 payload.append('attack_token', hData.attackToken || '');
                 payload.append('request_id', `req_${Math.random().toString(36).substring(2, 8)}${currentTime}`);
                 console.log(`${this.logPrefix} 🛡️ Chuẩn bị tấn công boss ${bossId} với payload:`, Object.fromEntries(payload.entries()));
-                // console.log(`${this.logPrefix} ⚔️ Đang tấn công boss...`);
-                // console.log(`${this.logPrefix} 🔐 Attack Token: ${hData.attackToken}`);
+            
                 const response = await fetch(this.ajaxUrl, {
                     method: 'POST',
                     headers: this.headers,
@@ -4610,6 +4609,8 @@ class BiCanh {
                         const response = await fetch(url);
                         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                         const html = await response.text();
+
+                        hData = parseHh3dData(html);
 
                         // Regex 1: lấy số lượt đánh
                         const attacksMatch = html.match(/<div class="remaining-attacks">Lượt đánh còn lại:\s*(\d+)<\/div>/);
@@ -11228,3 +11229,7 @@ class HoatDongNgay {
             hienTuviKM.startUp();
         }
 })();
+
+
+
+
