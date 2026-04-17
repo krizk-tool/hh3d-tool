@@ -7375,7 +7375,7 @@ function extractRedeemNonce(html) {
                         // } else 
                         {
                             // resDiv.textContent = 'K.Rõ';
-                            resDiv.textContent = `${tierText}`;
+                            resDiv.textContent = `${tierText ? tierText : 'K.Rõ'}`;
                             resDiv.style.color = '#ff5252';
                         }
                     } catch (err) {
@@ -10579,11 +10579,12 @@ class HoatDongNgay {
                 const text = await res.text(); // phải await
                 const doc = new DOMParser().parseFromString(text, 'text/html');
 
-                const h4 = doc.querySelector('h4');
+                const h4 = doc.querySelector('.um-name h4');
                 if (!h4) return null;
 
-                // lấy text từ <b> nếu có, nếu không fallback div/h4
+                // lấy text từ <b> nếu có, nếu không fallback div (class thay đổi mỗi id) / h4
                 const raw = h4.querySelector('b')?.textContent
+                        || h4.querySelector('div[class*="color_"]')?.textContent
                         || h4.querySelector('div')?.textContent
                         || h4.textContent
                         || "";
