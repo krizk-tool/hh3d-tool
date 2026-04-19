@@ -1,7 +1,7 @@
     // ==UserScript==
     // @name          HH3D Auto - Edited by Krizk
     // @namespace     hh3d-tool-krizk
-    // @version       5.9.4
+    // @version       5.9.5
     // @description   Auto  HH3D
     // @author        Cre: [Unknown] - Edited by Krizk
     // @include       *://hoathinh3d.co*/*
@@ -37,7 +37,16 @@
         let isCssInjected = false;
         let userBetCount = 0;
         let userBetStones = [];
-
+        //   loggedIn: '1',
+        //   userId: '',
+        //   securityToken: '...',
+        //   tokenType: 'normal',
+        //   pageId: '622123',
+        //   adminAjax: 'https://hoathinh3d.co/wp-admin/admin-ajax.php',
+        //   themeAjax: 'https://hoathinh3d.co/wp-content/themes/halimmovies-child/hh3d-ajax.php',
+        //   restAction: 'https://hoathinh3d.co/wp-json/hh3d/v1/action',
+        //   restBase: 'https://hoathinh3d.co/wp-json',
+        //   restNonce: 'b756294d06',
         //   act: {
             //   tltmOpen: '1354a8a1',
             //   tltmTimer: '2a2e1a5a',
@@ -76,6 +85,7 @@
             //   vdSave: 'ba4ef77c',
             //   lotterySpin: '815b016f',
             //   lotteryHistory: '7b227116'
+            //   hdnReward: 'b82f4d91'
             // }
         let hData = null; // Biến toàn cục lưu trữ hh3dData đã được parse và decode       
         /**
@@ -7501,7 +7511,7 @@ function extractRedeemNonce(html) {
 //==================================
 class HoatDongNgay {
     constructor() {
-        this.ajaxUrl = weburl + "/wp-admin/admin-ajax.php";
+        this.ajaxUrl = weburl + "/wp-content/themes/halimmovies-child/hh3d-ajax.php";
     }
 
     // 📦 Lấy rương (Daily Chest)
@@ -7512,7 +7522,7 @@ class HoatDongNgay {
         }
 
         const bodyData = new URLSearchParams({
-            action: "daily_activity_reward",
+            action: (hData && hData.act) ? hData.act.hdnReward : "daily_activity_reward",
             stage: stage,
             security_token: securityToken // thêm token vào đây
         });
@@ -11096,7 +11106,7 @@ class HoatDongNgay {
     async function kiemTraIdTong(tongMonId) {
         try {
             // Gọi GitHub để lấy danh sách ID tông môn hợp lệ: ["628390", "123456", ...]
-            const response = await fetch('https://raw.githubusercontent.com/thuanhazzz/hh3d/main/tm_hop_le.json');
+            const response = await fetch('https://raw.githubusercontent.com/krizk-tool/hh3d-tool/main/tm_hop_le.json');
 
             if (!response.ok) {
                 throw new Error(`Không thể kiểm tra tông môn: ${response.status} ${response.statusText}`);
@@ -11174,11 +11184,9 @@ class HoatDongNgay {
         //     return; // Dừng khởi động script nếu tông môn không hợp lệ
         // }
 
-
         // ......
         // nếu xóa phần check tông môn thì gọi riêng phần lấy ID tông môn để lưu tên tông môn vào localStorage và hiển thị ở UI
         await getTongMonId(weburl + 'danh-sach-thanh-vien-tong-mon?t=' + Date.now());
-        // ......
 
         // ===============================================
         // KHỞI TẠO SCRIPT
