@@ -1,7 +1,7 @@
     // ==UserScript==
     // @name          HH3D Auto - Edited by Krizk
     // @namespace     hh3d-tool-krizk
-    // @version       5.9.5
+    // @version       5.9.6
     // @description   Auto  HH3D
     // @author        Cre: [Unknown] - Edited by Krizk
     // @include       *://hoathinh3d.co*/*
@@ -4988,10 +4988,10 @@ class DanTuBaoShop {
                 return ajaxShop;
             }
             showNotification("❌ Không tìm thấy Ajax_Shop trong HTML", "error");
-            return { nonce: null, ajaxurl: this.weburl + "wp-admin/admin-ajax.php" };
+            return { nonce: null, ajaxurl: this.weburl + "wp-content/themes/halimmovies-child/hh3d-ajax.php" };
         } catch (e) {
             showNotification("❌ Lỗi khi tải trang Tụ Bảo Các để lấy nonce", "error");
-            return { nonce: null, ajaxurl: this.weburl + "wp-admin/admin-ajax.php" };
+            return { nonce: null, ajaxurl: this.weburl + "wp-content/themes/halimmovies-child/hh3d-ajax.php" };
         }
     }
 
@@ -5007,12 +5007,13 @@ class DanTuBaoShop {
         return null;
     }
 
-    async muaDanTuBao(dan, nonce, apiUrl) {
+    async muaDanTuBao(dan, nonce, securityToken, apiUrl) {
         try {
             const bodyPayload = new URLSearchParams({
                 action: "handle_buy_danduoc",
                 danduoc_id: dan.id,
-                nonce: nonce
+                nonce: nonce,
+                security_token: securityToken
             });
 
             const response = await fetch(apiUrl, {
@@ -5086,7 +5087,8 @@ class DanTuBaoShop {
             let muaThanhCong = false;
             for (const dan of danhSachPhuHop) {
                 showNotification(`📌 Tu Vi ${myTuVi} thử mua ${dan.name}`, "info");
-                const res = await this.muaDanTuBao(dan, ajaxShop.nonce, ajaxShop.ajaxurl);
+                const securityToken = ajaxShop.security_token || hh3dData.securityToken;
+                const res = await this.muaDanTuBao(dan, ajaxShop.nonce, securityToken, ajaxShop.ajaxurl);
 
                 if (res?.success) {
                     totalTuViGain += dan.tuviGain;
@@ -6148,9 +6150,9 @@ function extractRedeemNonce(html) {
                     showNotification(d.data.message, 'success');
                     return true;
                 }
-
+                console.log(`${this.logPrefix} ❌ Vào mỏ thất bại:`, JSON.stringify(d));
                 const msg = d.data.message || 'Lỗi vào mỏ.';
-
+                
                 if (msg.includes('đạt đủ thưởng ngày')) {
                     taskTracker.markTaskDone(accountId, 'khoangmach');
                     showNotification(msg, 'error');
@@ -6171,8 +6173,25 @@ function extractRedeemNonce(html) {
                         showNotification('Lỗi nhận thưởng khi bị đánh ra khỏi mỏ khoáng', 'warn');
                     }
                 } else {
-                    // showNotification(msg, 'error');
-                    console.log(`${this.logPrefix} ❌ ${msg}`);
+                    showNotification(msg, 'error');
+                    console.log(`${this.logPrefix} ❌ ${msg}`);                    
+                }
+                // Kiểm tra thông tin mỏ và kiểm tra ngoại tông
+                let mineInfo = await this.getUsersInMine(mineId);
+                if (!mineInfo) throw new Error('Lỗi lấy thông tin chi tiết trong mỏ');
+                const users = mineInfo.users || [];
+                if (users.length === 0) {
+                    console.log(`[Khoáng mạch] Mỏ ${mineId} trống.`);
+                    showNotification('Mỏ trống trơn???', 'warn');
+                    throw new Error('Mỏ trống trơn???');
+                }
+                                                    
+                // Kiểm tra ngoại tông
+                const outerUsers = users.filter(u => !u.lien_minh && !u.dong_mon);
+                const outerNotification = localStorage.getItem('khoangmach_outer_notification') === 'true';
+                if (outerUsers.length > 0 && outerNotification) {
+                    showNotification(`Có <b>${outerUsers.length}</b> người chơi ngoại tông trong mỏ!`, 'warn');
+                    this.showOuterEnemyModal(outerUsers, mineId);
                 }
                 return false;
 
@@ -6357,7 +6376,7 @@ function extractRedeemNonce(html) {
                 return false;
             }
             console.log(`${this.logPrefix} Đang tấn công người chơi trong mỏ ${mineId} với attackToken: ${attackToken}`);
-            const payload = new URLSearchParams({ action: hData && hData.act ? hData.act.kmAttack :'attack_user_in_mine', attack_token: attackToken, mine_id: mineId, security_token: securityToken, security: security });
+            const payload = new URLSearchParams({ action: hData?.act?.kmAttack || 'attack_user_in_mine', attack_token: attackToken, mine_id: mineId, security_token: securityToken, security: security });
             try {
                 const r = await fetch(this.ajaxUrl, { method: 'POST', headers: this.headers, body: payload, credentials: 'include' });
                 const d = await r.json();
@@ -6453,7 +6472,7 @@ function extractRedeemNonce(html) {
                 for (let i = 0; i < users.length; i++) {
                     const u = users[i];
                     const avatarUrl = u.avatar || await this.decodeAvatar(u.avatar, accountId);
-                    const realId = (await this.getIdfromAvatar(avatarUrl)) || u.id;
+                    const realId = u.profile_id|| (await this.getIdfromAvatar(avatarUrl)) || u.id;
                     // console.log(`[Khoáng mạch] User ${i}: id = ${u.id}, avatar=${u.avatar}, decodedAvatar=${avatarUrl}, realId=${realId}, accountId=${accountId}`);
                     if (realId && realId.toString() === accountId.toString()) {
                         myIndex = i;
@@ -6648,49 +6667,14 @@ function extractRedeemNonce(html) {
             if (!groupRoleHtml || typeof groupRoleHtml !== 'string') {
                 return { tongMonName: null, role: null };
             }
-
             try {
-                const doc = new DOMParser().parseFromString(
-                    `<div>${groupRoleHtml}</div>`,
-                    'text/html'
-                );
+                const doc = new DOMParser().parseFromString(`<div>${groupRoleHtml}</div>`, 'text/html');
                 const root = doc.body;
-
-                /* =========
-                * ROLE: tooltip cuối
-                * ========= */
-                const tooltips = Array.from(
-                    root.querySelectorAll('span[data-tooltip]')
-                )
-                    .map(el => el.getAttribute('data-tooltip')?.trim())
-                    .filter(Boolean);
-
-                const role = tooltips.length
-                    ? tooltips[tooltips.length - 1]
-                    : null;
-
-                /* =========
-                * TÊN TÔNG
-                * ========= */
-                let tongMonName = null;
-
-                const bangHoiEl = root.querySelector('span[class*="bang-hoi-mau"]');
-                if (bangHoiEl) {
-                    const t = (bangHoiEl.textContent || '').trim();
-                    if (t) tongMonName = t;
-                }
-
-                if (!tongMonName) {
-                    const wrapper = root.querySelector('.tong-cap-wrapper');
-                    if (wrapper) {
-                        const next = wrapper.nextElementSibling;
-                        if (next && next.tagName === 'SPAN') {
-                            const t = (next.textContent || '').trim();
-                            if (t) tongMonName = t;
-                        }
-                    }
-                }
-
+                const tongLink = root.querySelector('a.tong-link');
+                const tongMonName = tongLink ? tongLink.textContent.trim() || null : null;
+                const roleSpans = Array.from(root.querySelectorAll('span[data-tooltip]'))
+                    .filter(el => !el.classList.contains('tong-cap-wrapper'));
+                const role = roleSpans.length ? roleSpans[roleSpans.length - 1].getAttribute('data-tooltip').trim() || null : null;
                 return { tongMonName, role };
             } catch {
                 return { tongMonName: null, role: null };
@@ -6757,8 +6741,8 @@ function extractRedeemNonce(html) {
                         avatar: u.a || u.avatar || u.avatarUrl,
                         attack_token: u.att || u.attack_token,
                         name: u.n || u.name,
-                        tongMonName: u.t || u.tongMonName,
-                        role: u.r || u.role,
+                        tongMonName: u.t || (u.group_role_html ? this.parseGroupRoleHtml(u.group_role_html).tongMonName : null),
+                        role: u.r || (u.group_role_html ? this.parseGroupRoleHtml(u.group_role_html).role : null) || u.role,
                         dong_mon: u.d === 1 || u.dong_mon,   // d = dong_mon
                         lien_minh: u.l === 1 || u.lien_minh, // l = lien_minh
                         ...u
@@ -6982,7 +6966,11 @@ function extractRedeemNonce(html) {
             const usersHtml = (await Promise.all(outerUsers.map(async (u) => {
                 const attackToken = u.attack_token || u.att || u.id;
                 const avatarUrl = u.avatar || await this.decodeAvatar(u.avatar, accountId);
-                const id = (await this.getIdfromAvatar(avatarUrl)) || u.id;
+                const id = u.profile_id ||(await this.getIdfromAvatar(avatarUrl)) || u.id;
+                const { tongMonName: group = null, role: _role = null } = u.group_role_html ? this.parseGroupRoleHtml(u.group_role_html) : {};
+                const groupDisplay = group || 'Vô phái';
+                const roleDisplay = _role || 'Thành viên';
+
                 return `
                     <div style="padding: 8px 0; border-bottom: 1px dashed #333; display: flex; justify-content: space-between; align-items: center; gap: 10px;">
                         <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
@@ -6991,7 +6979,7 @@ function extractRedeemNonce(html) {
                             </a>
                             <div style="display: flex; flex-direction: column; min-width: 0; flex: 1;">
                                 <div style="color: #ff6b6b; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${esc(u.name)} (${id})</div>
-                                <div style="font-size: 11px; color: #777; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${esc(u.tongMonName || 'Vô phái')} - ${esc(u.role || 'Thành viên')}</div>
+                                <div style="font-size: 11px; color: #777; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${esc(groupDisplay)} - ${esc(roleDisplay)}</div>
                             </div>
                         </div>
                         <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0;">
@@ -7522,7 +7510,7 @@ class HoatDongNgay {
         }
 
         const bodyData = new URLSearchParams({
-            action: (hData && hData.act) ? hData.act.hdnReward : "daily_activity_reward",
+            action: hData?.act?.hdnReward || "daily_activity_reward",
             stage: stage,
             security_token: securityToken // thêm token vào đây
         });
@@ -10536,9 +10524,9 @@ class HoatDongNgay {
         }
         async getNonceGetUserInMine() {
             const htmlSource = document.documentElement.innerHTML;
-            const regex = /action:\s*'(?:get_users_in_mine|kmList)',[\s\S]*?security:\s*'([a-f0-9]+)'/;
-            const match = htmlSource.match(regex);
-            return match ? match[1] : null;
+            const tokens = extractActionTokens(htmlSource);
+            const security_get_users = tokens["get_users_in_mine"];
+            return security_get_users || null;
         }
 
         async getNonce() {
@@ -10730,9 +10718,9 @@ class HoatDongNgay {
             if (typeof unsafeWindow !== 'undefined' && unsafeWindow.hh3dData && unsafeWindow.hh3dData.securityToken) {
                 securityToken = unsafeWindow.hh3dData.securityToken;
             }
-            // Cách 2: Lấy từ window thường
-            else if (typeof hh3dData !== 'undefined' && hh3dData.securityToken) {
-                securityToken = hh3dData.securityToken;
+            // Cách 2: Lấy từ hData
+            else if (typeof hData !== 'undefined' && hData.securityToken) {
+                securityToken = hData.securityToken;
             }
 
             // Cách 3: Nếu vẫn null -> Gọi hàm quét (Fallback cuối cùng)
@@ -10741,6 +10729,8 @@ class HoatDongNgay {
                 // Gọi hàm getSecurityToken chúng ta đã viết ở trên
                 securityToken = await getSecurityToken(this.khoangMachUrl || window.location.href);
             }
+            this.nonceGetUserInMine = await this.getNonceGetUserInMine();
+            
             if (!this.nonceGetUserInMine || !securityToken) {
                 let errorMsg = 'Lỗi (get_users):';
                 if (!this.nonceGetUserInMine) errorMsg += " Nonce (security) chưa được cung cấp.";
@@ -10751,7 +10741,7 @@ class HoatDongNgay {
             }
 
             const payload = new URLSearchParams({
-                action: hData && hData.act ? hData.act.kmList :'get_users_in_mine',
+                action: hData && hData.act ? hData.act.kmUsers :'get_users_in_mine',
                 mine_id: mineId,
                 security_token: securityToken,
                 security: this.nonceGetUserInMine
@@ -10765,7 +10755,7 @@ class HoatDongNgay {
                     credentials: 'include'
                 });
                 const d = await r.json();
-
+                console.log(`${this.logPrefix} Dữ liệu người chơi trong mỏ:`, d);
                 return d.success ? d.data : (showNotification(d.message || 'Lỗi lấy thông tin người chơi.', 'error'), null);
 
             } catch (e) {
@@ -10774,98 +10764,98 @@ class HoatDongNgay {
             }
         }
 
-        async getTuVi(userId) {
-            // 0. Chuẩn bị Nonce & Headers
-            if (!this.nonce) {
-                this.nonce = await this.getNonce();
-            }
-            const nonce = this.nonce;
-            if (!nonce) return null;
+        // async getTuVi(userId) {
+        //     // 0. Chuẩn bị Nonce & Headers
+        //     if (!this.nonce) {
+        //         this.nonce = await this.getNonce();
+        //     }
+        //     const nonce = this.nonce;
+        //     if (!nonce) return null;
 
-            const headers = {
-                "Content-Type": "application/json",
-                "X-WP-Nonce": nonce
-            };
-            const targetId = String(userId);
+        //     const headers = {
+        //         "Content-Type": "application/json",
+        //         "X-WP-Nonce": nonce
+        //     };
+        //     const targetId = String(userId);
 
-            // ============================================================
-            // 🟢 CÁCH 1: LOGIC CŨ (GIỮ NGUYÊN BẢN GỐC)
-            // ============================================================
-            try {
-                const res = await fetch(`${weburl}/wp-json/luan-vo/v1/search-users`, {
-                    method: "POST",
-                    headers: headers,
-                    body: JSON.stringify({ query: targetId, page: 1 }),
-                    credentials: "include",
-                    mode: "cors"
-                });
+        //     // ============================================================
+        //     // 🟢 CÁCH 1: LOGIC CŨ (GIỮ NGUYÊN BẢN GỐC)
+        //     // ============================================================
+        //     try {
+        //         const res = await fetch(`${weburl}/wp-json/luan-vo/v1/search-users`, {
+        //             method: "POST",
+        //             headers: headers,
+        //             body: JSON.stringify({ query: targetId, page: 1 }),
+        //             credentials: "include",
+        //             mode: "cors"
+        //         });
 
-                // Logic gốc: Lấy user đầu tiên trong danh sách (users[0])
-                const points = res.ok ? (await res.json())?.data?.users?.[0]?.points ?? null : null;
+        //         // Logic gốc: Lấy user đầu tiên trong danh sách (users[0])
+        //         const points = res.ok ? (await res.json())?.data?.users?.[0]?.points ?? null : null;
 
-                // Nếu tìm thấy điểm -> Trả về luôn
-                if (points !== null && points !== undefined) {
-                    return points;
-                }
-            } catch (e) {
-                // Lỗi ở cách 1 -> Bỏ qua để chạy xuống cách 2
-            }
+        //         // Nếu tìm thấy điểm -> Trả về luôn
+        //         if (points !== null && points !== undefined) {
+        //             return points;
+        //         }
+        //     } catch (e) {
+        //         // Lỗi ở cách 1 -> Bỏ qua để chạy xuống cách 2
+        //     }
 
-            // ============================================================
-            // 🔴 CÁCH 2: FALLBACK (FOLLOW -> SCAN -> UNFOLLOW)
-            // Chỉ chạy khi Cách 1 trả về null hoặc lỗi
-            // ============================================================
-            // console.log(`[GetTuVi] Cách 1 thất bại, đang dùng Fallback cho ID ${targetId}...`);
+        //     // ============================================================
+        //     // 🔴 CÁCH 2: FALLBACK (FOLLOW -> SCAN -> UNFOLLOW)
+        //     // Chỉ chạy khi Cách 1 trả về null hoặc lỗi
+        //     // ============================================================
+        //     // console.log(`[GetTuVi] Cách 1 thất bại, đang dùng Fallback cho ID ${targetId}...`);
 
-            let tuVi = null;
+        //     let tuVi = null;
 
-            try {
-                // B2.1: Follow
-                await fetch(`${weburl}/wp-json/luan-vo/v1/follow`, {
-                    method: "POST",
-                    headers: headers,
-                    body: JSON.stringify({ followed_user_id: targetId }),
-                    credentials: "include",
-                    mode: "cors"
-                });
+        //     try {
+        //         // B2.1: Follow
+        //         await fetch(`${weburl}/wp-json/luan-vo/v1/follow`, {
+        //             method: "POST",
+        //             headers: headers,
+        //             body: JSON.stringify({ followed_user_id: targetId }),
+        //             credentials: "include",
+        //             mode: "cors"
+        //         });
 
-                // B2.2: Lấy danh sách Following
-                const resList = await fetch(`${weburl}/wp-json/luan-vo/v1/get-following-users`, {
-                    method: "POST",
-                    headers: headers,
-                    body: JSON.stringify({ page: 1 }),
-                    credentials: "include",
-                    mode: "cors"
-                });
+        //         // B2.2: Lấy danh sách Following
+        //         const resList = await fetch(`${weburl}/wp-json/luan-vo/v1/get-following-users`, {
+        //             method: "POST",
+        //             headers: headers,
+        //             body: JSON.stringify({ page: 1 }),
+        //             credentials: "include",
+        //             mode: "cors"
+        //         });
 
-                if (resList.ok) {
-                    const jsonList = await resList.json();
-                    if (jsonList.success && jsonList.data && Array.isArray(jsonList.data.users)) {
-                        // Ở danh sách follow thì phải tìm chính xác ID kẻo lấy nhầm người khác
-                        const targetUser = jsonList.data.users.find(u => String(u.id) === targetId);
-                        if (targetUser) {
-                            tuVi = targetUser.points;
-                        }
-                    }
-                }
+        //         if (resList.ok) {
+        //             const jsonList = await resList.json();
+        //             if (jsonList.success && jsonList.data && Array.isArray(jsonList.data.users)) {
+        //                 // Ở danh sách follow thì phải tìm chính xác ID kẻo lấy nhầm người khác
+        //                 const targetUser = jsonList.data.users.find(u => String(u.id) === targetId);
+        //                 if (targetUser) {
+        //                     tuVi = targetUser.points;
+        //                 }
+        //             }
+        //         }
 
-            } catch (e) {
-                console.error(`[GetTuVi] Fallback lỗi:`, e);
-            } finally {
-                // B2.3: Unfollow (Luôn chạy để dọn rác)
-                try {
-                    await fetch(`${weburl}/wp-json/luan-vo/v1/unfollow`, {
-                        method: "POST",
-                        headers: headers,
-                        body: JSON.stringify({ unfollow_user_id: targetId }),
-                        credentials: "include",
-                        mode: "cors"
-                    });
-                } catch (ignore) {}
-            }
+        //     } catch (e) {
+        //         console.error(`[GetTuVi] Fallback lỗi:`, e);
+        //     } finally {
+        //         // B2.3: Unfollow (Luôn chạy để dọn rác)
+        //         try {
+        //             await fetch(`${weburl}/wp-json/luan-vo/v1/unfollow`, {
+        //                 method: "POST",
+        //                 headers: headers,
+        //                 body: JSON.stringify({ unfollow_user_id: targetId }),
+        //                 credentials: "include",
+        //                 mode: "cors"
+        //             });
+        //         } catch (ignore) {}
+        //     }
 
-            return tuVi;
-        }
+        //     return tuVi;
+        // }
 
         async showTotalEnemies(mineId) {
             const data = await this.getUsersInMine(mineId);
@@ -10952,36 +10942,66 @@ class HoatDongNgay {
                 }
             });
         }
+        async decodeAvatar(encoded, viewerId) {
+            try {
+                // ⭐ Validate input
+                if (!encoded || typeof encoded !== 'string') {
+                    return null;
+                }
+                
+                const key = (viewerId % 251) + 1;
+                // ⭐ Browser không có Buffer, dùng atob() để decode Base64
+                const raw = atob(encoded);
+                let result = '';
+                for (let i = 0; i < raw.length; i++) {
+                    result += String.fromCharCode(raw.charCodeAt(i) ^ (key ^ (i % 7)));
+                }
+                return result;
+            } catch(e) {
+                console.error('decodeAvatar error:', e, 'Input:', encoded);
+                return null;
+            }
+        }
 
         async showTuVi(myTuVi) {
             if (!myTuVi) return;
 
-            const buttons = document.querySelectorAll('.attack-btn');
-            for (const btn of buttons) {
-                if (btn.dataset.tuviAttached === '1') continue;
-                btn.dataset.tuviAttached = '1';
+            const rows = document.querySelectorAll('.user-row');
+            for (const row of rows) {
+                if (row.dataset.tuviAttached === '1') continue;
+                row.dataset.tuviAttached = '1';
 
-                const userId = btn.getAttribute('data-user-id');
+                // Lấy userId từ href profile hoặc src avatar
+                const profileLink = row.querySelector('a[href*="/profile/"]');
+                const avatarImg = row.querySelector('img[src*="/ultimatemember/"]');
+                let userId = null;
+                if (profileLink) {
+                    const m = profileLink.getAttribute('href').match(/\/profile\/(\d+)/);
+                    if (m) userId = m[1];
+                }
+                if (!userId && avatarImg) {
+                    const m = avatarImg.getAttribute('src').match(/\/ultimatemember\/(\d+)\//);
+                    if (m) userId = m[1];
+                }
                 if (!userId) continue;
+                // console.log(`Đang xử lý userId ${userId}...`);
+
+                const btn = row.querySelector('.attack-btn');
 
                 try {
-                    const opponentTuVi = await this.getTuVi(userId);
-                    if (opponentTuVi) {
-                        const rate = this.winRate(myTuVi, opponentTuVi).toFixed(2);
-                        this.upsertTuViInfo(btn, userId, opponentTuVi, myTuVi);
-                    } else {
-                        await new Promise(r => setTimeout(r, 500))
-                        this.upsertTierInfo(btn, userId);
-                    }
+                    await new Promise(r => setTimeout(r, 500));
+                    if (btn) this.upsertTierInfo(btn, userId);
                 } catch (e) {
                     console.error('getTuVi error', e);
                 }
 
-                const mineId = btn.getAttribute('data-mine-id');
-                if (mineId && mineId !== this.currentMineId) {
-                    this.currentMineId = mineId;
-                    this.showTotalEnemies(mineId);
-                    this.addEventListenersToReloadBtn(mineId);
+                if (btn) {
+                    const mineId = btn.getAttribute('data-mine-id');
+                    if (mineId && mineId !== this.currentMineId) {
+                        this.currentMineId = mineId;
+                        this.showTotalEnemies(mineId);
+                        this.addEventListenersToReloadBtn(mineId);
+                    }
                 }
                 // nghỉ 1s tránh spam
                 await new Promise(r => setTimeout(r, 1000));
