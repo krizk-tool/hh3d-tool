@@ -10,6 +10,7 @@
     // @run-at        document-start
     // @grant         unsafeWindow
     // @connect       raw.githubusercontent.com
+    // @icon          😂
 
     // ==/UserScript==
     (async function() {
