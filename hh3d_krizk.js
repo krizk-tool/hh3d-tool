@@ -1,7 +1,7 @@
     // ==UserScript==
     // @name          HH3D Auto - Edited by Krizk
     // @namespace     hh3d-tool-krizk
-    // @version       5.9.6
+    // @version       5.9.7
     // @description   Auto  HH3D
     // @author        Cre: [Unknown] - Edited by Krizk
     // @include       *://hoathinh3d.co*/*
@@ -989,8 +989,24 @@ class TaskTracker {
             taskIcon: '<i class="fas fa-calendar-day"></i>',
             hasButton: true,
             buttonText: 'Mở',
+            hasExtraButton: true,
+            extraButtonText: 'Vào',
+            extraButtonTitle: 'Vào Hoạt Động Ngày',
             async action() {
                 await hoatdongngay.doHoatDongNgay();
+            },
+            async extraAction() {
+                window.location.href = '/nhiem-vu-hang-ngay';
+            }
+        },
+        {
+            taskId: 'mecung',
+            taskName: 'Mê Cung',
+            taskIcon: '<i class="fas fa-dungeon"></i>',
+            hasButton: true,
+            buttonText: 'Vào',
+            async action() {
+                window.location.href = '/me-cung';
             }
         }
     ];
@@ -7512,7 +7528,7 @@ class HoatDongNgay {
         const bodyData = new URLSearchParams({
             action: hData?.act?.hdnReward || "daily_activity_reward",
             stage: stage,
-            security_token: securityToken // thêm token vào đây
+            security_token: hData?.securityToken || securityToken // thêm token vào đây
         });
 
         try {
@@ -7567,7 +7583,7 @@ class HoatDongNgay {
                         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:142.0) Gecko/20100101 Firefox/142.0",
                         "Accept": "*/*",
                         "Accept-Language": "vi,en-US;q=0.5",
-                        "X-Security-Token": securityToken,
+                        "X-Security-Token": hData?.securityToken || securityToken,
                         "X-WP-Nonce": nonce,
                         "Content-Type": "application/json"
                     },
