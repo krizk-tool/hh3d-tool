@@ -838,21 +838,17 @@ class TaskTracker {
             async extraAction() {
                 await hvmuaruong.muaRuongLinhBao(5);
             }
+        },        
+        {
+            taskId: 'mecung',
+            taskName: 'Mê Cung',
+            taskIcon: '<i class="fas fa-dungeon"></i>',
+            hasButton: true,
+            buttonText: 'Vào',
+            async action() {
+                window.location.href = '/me-cung';
+            }
         },
-        // {
-        //     taskId: 'luanvo',
-        //     taskName: 'Luận Võ',
-        //     taskIcon: '<i class="fas fa-trophy"></i>',
-        //     autorunEnabled: true,
-        //     autorunKey: 'autoLuanVo',
-        //     hasButton: true,
-        //     buttonText: 'Đấu',
-        //     hasCustomControls: true,
-        //     async action() {
-        //         const autoChallenge = localStorage.getItem('luanvo_auto_challenge') !== '0';
-        //         await luanvo.doLuanVo(autoChallenge);
-        //     }
-        // },
         {
             taskId: 'khoangmach',
             taskName: 'Khoáng Mạch',
@@ -997,16 +993,6 @@ class TaskTracker {
             },
             async extraAction() {
                 window.location.href = '/nhiem-vu-hang-ngay';
-            }
-        },
-        {
-            taskId: 'mecung',
-            taskName: 'Mê Cung',
-            taskIcon: '<i class="fas fa-dungeon"></i>',
-            hasButton: true,
-            buttonText: 'Vào',
-            async action() {
-                window.location.href = '/me-cung';
             }
         }
     ];
