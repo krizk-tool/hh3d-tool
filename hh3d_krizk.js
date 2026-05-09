@@ -332,7 +332,7 @@
                     // ============================================================
                 } else {
                     //  - Token chỉ được trả về cho hàm gọi, không ảnh hưởng trang hiện tại
-                    console.log(`${logPrefix} 🛑 Token lấy từ URL khác (${url}). KHÔNG cập nhật hh3dData của trang này.`);
+                    console.log(`${logPrefix} 🛑 Token lấy từ URL khác (${url}).`);
                 }
 
                 return token;
@@ -345,39 +345,39 @@
         }
     }
 
-    //Lấy Nonce
-    async function getNonce() {       
-        if (typeof restNonce !== 'undefined' && restNonce) {
-            return restNonce;
-        }        
+        //Lấy Nonce
+        async function getNonce() {       
+            if (typeof restNonce !== 'undefined' && restNonce) {
+                return restNonce;
+            }        
 
-        const scripts = document.querySelectorAll('script');
-        for (const script of scripts) {
-            let match = script.innerHTML.match(/"restNonce"\s*:\s*"([a-f0-9]+)"/);
-            if (match) {
-                return match[1];
-            } else {
-                match = script.innerHTML.match(/"nonce"\s*:\s*"([a-f0-9]+)"/);
+            const scripts = document.querySelectorAll('script');
+            for (const script of scripts) {
+                let match = script.innerHTML.match(/"restNonce"\s*:\s*"([a-f0-9]+)"/);
                 if (match) {
                     return match[1];
+                } else {
+                    match = script.innerHTML.match(/"nonce"\s*:\s*"([a-f0-9]+)"/);
+                    if (match) {
+                        return match[1];
+                    }
                 }
             }
-        }
 
-        try {
-            const nonce = await getSecurityNonce(weburl + '?t', "restNonce");
-            if (nonce) {
-                return nonce;
+            try {
+                const nonce = await getSecurityNonce(weburl + '?t', "restNonce");
+                if (nonce) {
+                    return nonce;
+                }
+            } catch (error) {
+                console.error("Failed to get security nonce", error);
             }
-        } catch (error) {
-            console.error("Failed to get security nonce", error);
+
+            return null;
         }
 
-        return null;
-    }
 
-
-/**
+        /**
         * Lấy security nonce một cách chung chung từ một URL.
         *
         * @param {string} url - URL của trang web cần lấy nonce.
@@ -7517,6 +7517,7 @@ class HoatDongNgay {
             security_token: hData?.securityToken || securityToken // thêm token vào đây
         });
 
+        console.log(`📦 Đang nhận rương ${stage} với dữ liệu:`, bodyData.toString());
         try {
             const response = await fetch(this.ajaxUrl, {
                 credentials: "include",
@@ -7608,6 +7609,7 @@ class HoatDongNgay {
             return;
         }
         console.log("Bắt đầu nhận rương hoạt động ngày...");
+        await getSecurityToken(weburl + 'nhiem-vu-hang-ngay?t');
         const chest1 = await this.getDailyChest("stage1");
         await new Promise(r => setTimeout(r, 5000)); // Delay 5s giữa 2 rương
         const chest2 = await this.getDailyChest("stage2");
